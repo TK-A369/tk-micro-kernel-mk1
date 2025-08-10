@@ -34,6 +34,8 @@ pub fn build(b: *std.Build) void {
         .root_module = exe_mod,
     });
 
+    exe.entry = .{ .symbol_name = "kmain" };
+    exe.lto = .none;
     exe.setLinkerScript(b.path("linker.lds"));
 
     // This declares intent for the executable to be installed into the
