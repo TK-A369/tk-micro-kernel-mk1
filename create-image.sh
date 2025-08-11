@@ -22,6 +22,6 @@ fi
 echo "Copying to image..."
 mcopy -i image.img@@1M ./kernel/zig-out/bin/tk_micro_kernel_mk1 ::/boot
 mcopy -i image.img@@1M ./limine.conf ::/boot/limine
-mcopy -i image.img@@1M "$LIMINE_BIN_DIR/BOOTIA32.EFI" ::/EFI/BOOT
+mcopy -i image.img@@1M "$LIMINE_BIN_DIR/BOOTX64.EFI" ::/EFI/BOOT
 
 echo "Done!"

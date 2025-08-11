@@ -1,4 +1,3 @@
-const std = @import("std");
 const limine = @cImport(@cInclude("limine.h"));
 
 // See LIMINE_BASE_REVISION macro in limine.h
@@ -18,4 +17,6 @@ export const limine_requests_end_marker linksection(".limine_requests_end") = [2
     0x9572709f31764c62,
 };
 
-pub export fn kmain() linksection(".text") callconv(.c) void {}
+pub export fn kmain() linksection(".text") callconv(.c) void {
+    while (true) {}
+}

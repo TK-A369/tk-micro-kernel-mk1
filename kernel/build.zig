@@ -5,8 +5,9 @@ const std = @import("std");
 // runner.
 pub fn build(b: *std.Build) void {
     const target = b.resolveTargetQuery(.{
-        .cpu_arch = .x86,
+        .cpu_arch = .x86_64,
         .os_tag = .freestanding,
+        .abi = .none,
     });
 
     // Standard optimization options allow the person running `zig build` to select
@@ -23,6 +24,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .code_model = .kernel,
     });
 
     exe_mod.addIncludePath(b.path("limine-protocol/include"));
