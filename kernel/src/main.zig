@@ -6,6 +6,24 @@ export var limine_base_revision linksection(".limine_requests") = [3]u64{
     0x6a7b384944536bdc,
     3,
 };
+export var limine_memmap_request linksection(".limine_requests") = limine.limine_memmap_request{
+    .id = [4]u64{
+        0xc7b1dd30df4c8b88,
+        0x0a82e883a194f07b,
+        0x67cf3d9d378a806f,
+        0xe304acdfc50c3c62,
+    },
+    .revision = 0,
+};
+export var limine_hhdm_request linksection(".limine_requests") = limine.limine_hhdm_request{
+    .id = [4]u64{
+        0xc7b1dd30df4c8b88,
+        0x0a82e883a194f07b,
+        0x48dcf1cb8ad2b852,
+        0x63984e959a98244b,
+    },
+    .revision = 0,
+};
 export var framebuffer_request linksection(".limine_requests") = limine.limine_framebuffer_request{
     .id = [4]u64{
         0xc7b1dd30df4c8b88,
