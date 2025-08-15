@@ -37,8 +37,12 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     if (framebuffer_request.response == null) {
         hcf();
     }
+
     const fb = framebuffer_request.response.*.framebuffers[0];
-    _ = fb;
+    const fb_address = @as([*]u32, @ptrCast(@alignCast(fb.*.address.?)));
+    for (0..100) |i| {
+        fb_address[i * (fb.*.pitch / 4) + i] = 0xffffff;
+    }
 
     while (true) {}
 }
