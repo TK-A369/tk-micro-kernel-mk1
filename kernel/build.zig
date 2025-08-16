@@ -34,6 +34,8 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "tk_micro_kernel_mk1",
         .root_module = exe_mod,
+        .use_lld = true,
+        .use_llvm = true,
     });
 
     exe.entry = .{ .symbol_name = "kmain" };

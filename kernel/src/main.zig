@@ -1,5 +1,7 @@
 const limine = @cImport(@cInclude("limine.h"));
 
+const log = @import("log.zig");
+
 // See LIMINE_BASE_REVISION macro in limine.h
 export var limine_base_revision linksection(".limine_requests") = [3]u64{
     0xf9562b2d5c95a6c8,
@@ -61,6 +63,10 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     for (0..100) |i| {
         fb_address[i * (fb.*.pitch / 4) + i] = 0xffffff;
     }
+
+    // log.log_writer.print("Hello world!\n1 + 2 = {d}", .{1 + 2}) catch {};
+    log.log_writer.writeAll("Hello wrold!\nLorem ipsum dolor sir amet\n") catch {};
+    log.log_writer.flush() catch {};
 
     while (true) {}
 }
