@@ -1,3 +1,4 @@
+const std = @import("std");
 const limine = @cImport(@cInclude("limine.h"));
 
 const log = @import("log.zig");
@@ -47,10 +48,18 @@ export var limine_requests_end_marker linksection(".limine_requests_end") = [2]u
     0x9572709f31764c62,
 };
 
-fn hcf() void {
+fn hcf() noreturn {
     while (true) {
         asm volatile ("hlt");
     }
+}
+
+pub const panic = std.debug.FullPanic(myPanicHandler);
+
+fn myPanicHandler(msg: []const u8, first_trace_addr: ?usize) noreturn {
+    _ = msg;
+    _ = first_trace_addr;
+    hcf();
 }
 
 pub export fn kmain() linksection(".text") callconv(.c) void {
@@ -64,9 +73,15 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
         fb_address[i * (fb.*.pitch / 4) + i] = 0xffffff;
     }
 
-    // log.log_writer.print("Hello world!\n1 + 2 = {d}", .{1 + 2}) catch {};
-    log.log_writer.writeAll("Hello wrold!\nLorem ipsum dolor sir amet\n") catch {};
+    // log.log_writer.print("Hello world!\n1 + 2 = {d}\n", .{@as(u32, 17)}) catch {};
+    log.log_writer.print("Hello {s}!\n", .{"world"}) catch {};
+    // log.log_writer.writeAll("Hello wrold!\nLorem ipsum dolor sir amet\n") catch {};
     log.log_writer.flush() catch {};
+
+    for (0..limine_memmap_request.response.*.entry_count) |i| {
+        // log_writer
+        _ = i;
+    }
 
     while (true) {}
 }

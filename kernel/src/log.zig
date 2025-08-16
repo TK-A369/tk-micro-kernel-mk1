@@ -17,19 +17,20 @@ fn log_writer_drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) s
     w.end = 0;
 
     var len_written: usize = 0;
-    var last_ch: u8 = 0;
-    for (data) |seg| {
+    for (data[0 .. data.len - 1]) |seg| {
         for (seg) |ch| {
             log_write_char(ch);
-            last_ch = ch;
         }
         len_written += seg.len;
     }
 
+    const pattern = data[data.len - 1];
     for (0..splat) |_| {
-        log_write_char(last_ch);
+        for (pattern) |ch| {
+            log_write_char(ch);
+        }
+        len_written += pattern.len;
     }
-    // len_written += splat;
 
     return len_written;
 }
