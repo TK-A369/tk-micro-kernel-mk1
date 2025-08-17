@@ -35,7 +35,7 @@ fn log_writer_drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) s
     return len_written;
 }
 
-var log_buffer = std.mem.zeroes([16]u8);
+export var log_buffer = std.mem.zeroes([0]u8);
 pub var log_writer = std.Io.Writer{
     .vtable = &.{ .drain = log_writer_drain },
     .buffer = &log_buffer,

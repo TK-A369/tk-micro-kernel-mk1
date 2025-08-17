@@ -4,8 +4,17 @@ const std = @import("std");
 // declaratively construct a build graph that will be executed by an external
 // runner.
 pub fn build(b: *std.Build) void {
+    // var target_cpu_features_sub_set = std.Target.Cpu.Feature.Set.empty;
+    // target_cpu_features_sub_set.addFeature(std.Target.x86.Feature.mmx);
+    // target_cpu_features_sub_set.addFeature(std.Target.x86.Feature.nopl);
+    // target_cpu_features_sub_set.addFeature(std.Target.x86.Feature.sse2);
+    // target_cpu_features_sub_set.addFeature(std.Target.x86.Feature.x87);
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .x86_64,
+        .cpu_model = .{ .explicit = &std.Target.x86.cpu.skylake },
+        .cpu_features_sub = std.Target.Cpu.Feature.FeatureSetFns(std.Target.x86.Feature).featureSet(
+            &[_]std.Target.x86.Feature{},
+        ),
         .os_tag = .freestanding,
         .abi = .none,
     });

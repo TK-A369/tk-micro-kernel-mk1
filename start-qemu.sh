@@ -2,7 +2,8 @@
 
 EXEC_NAME=$0
 
-QEMU_ARGS="-drive file=image.img,format=raw,id=hd0"
+QEMU_ARGS="-cpu Skylake-Client-v1"
+QEMU_ARGS="${QEMU_ARGS} -drive file=image.img,format=raw,id=hd0"
 QEMU_ARGS="${QEMU_ARGS} -bios /usr/share/ovmf/x64/OVMF.4m.fd"
 
 # echo "\$\# = $#"
@@ -11,11 +12,14 @@ while [ "$#" -ge 1 ]; do
 		echo " -h - help"
 		echo " -ng - without graphics"
 		echo " -gdb - start GDB server"
+		echo " -kvm - use KVM acceleration"
 		exit 0
 	elif [ "$1" = "-ng" ]; then
 		QEMU_ARGS="${QEMU_ARGS} -nographic"
 	elif [ "$1" = "-gdb" ]; then
 		QEMU_ARGS="${QEMU_ARGS} -s -S"
+	elif [ "$1" = "-kvm" ]; then
+		QEMU_ARGS="${QEMU_ARGS} -accel kvm"
 	else
 		echo "Unrecognized argument \"$1\""
 		echo "Run \"$EXEC_NAME -h\" to get help"
