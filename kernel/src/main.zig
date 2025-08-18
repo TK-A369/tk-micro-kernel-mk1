@@ -62,6 +62,46 @@ fn myPanicHandler(msg: []const u8, first_trace_addr: ?usize) noreturn {
     hcf();
 }
 
+export var page_table align(4096) linksection(".page_table") = std.mem.zeroes([1 << 27]u64);
+var page_table_next_ptr: [*]u64 = @ptrCast(&page_table);
+
+inline fn next_page_table_entry(comptime count: u64) *[count]u64 {
+    const result: *[count]u64 = @ptrCast(page_table_next_ptr);
+    page_table_next_ptr += count;
+    if (page_table_next_ptr - @as([*]u64, @ptrCast(&page_table)) >= page_table.len) {
+        hcf();
+    }
+    return result;
+}
+
+fn set_page_entry_pml4(pml4_ptr: [*]u64, virt_addr_start: *anyopaque, phys_addr_start: usize, size: usize) void {
+    if (size < (1 << 30)) {
+        // It will fit in PDPT page
+        const pml4_idx = (virt_addr_start >> 39) & 0x1ff;
+        if (pml4_ptr[pml4_idx] & 0x1 == 0) {
+            // This PML4 entry hasn't been initialized yet - the present bit is cleared
+            pml4_ptr[pml4_idx] = 0;
+        }
+    } else {
+        // We can't make PML4 entry a terminal entry
+        // Instead, setup multiple PDPT entries
+        var size_rem = size;
+        var virt_addr_now = virt_addr_start;
+        var phys_addr_now = phys_addr_start;
+        while (true) {
+            if (size_rem < (1 << 30)) {
+                set_page_entry_pml4(pml4_ptr, virt_addr_now, phys_addr_now, size_rem);
+                break;
+            } else {
+                set_page_entry_pml4(pml4_ptr, virt_addr_now, phys_addr_now, 1 << 30);
+                size_rem -= (1 << 30);
+                virt_addr_now += (1 << 30);
+                phys_addr_now += (1 << 30);
+            }
+        }
+    }
+}
+
 pub export fn kmain() linksection(".text") callconv(.c) void {
     if (framebuffer_request.response == null) {
         hcf();
@@ -71,6 +111,13 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     const fb_address = @as([*]u32, @ptrCast(@alignCast(fb.*.address.?)));
     for (0..100) |i| {
         fb_address[i * (fb.*.pitch / 4) + i] = 0xffffff;
+    }
+
+    // Setup paging.
+    // Limine already sets it up, so virtaul address a+offset maps to physical address a.
+    const pml4_ptr = next_page_table_entry(512);
+    for (0..512) |i| {
+        pml4_ptr[i] = 0;
     }
 
     // log.log_writer.print("Hello world!\n1 + 2 = {d}\n", .{@as(u32, 17)}) catch {};

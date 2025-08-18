@@ -40,7 +40,9 @@ SECTIONS
 		*(.data .data.*)
 	} :data
 
+	. = ALIGN(CONSTANT(MAXPAGESIZE));
 	.bss : {
+		*(.page_table .page_table.*)
 		*(.bss .bss.*)
 		*(COMMON)
 	} :data
