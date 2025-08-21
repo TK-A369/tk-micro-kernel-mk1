@@ -62,7 +62,7 @@ fn myPanicHandler(msg: []const u8, first_trace_addr: ?usize) noreturn {
     hcf();
 }
 
-export var page_table align(4096) linksection(".page_table") = std.mem.zeroes([1 << 27]u64);
+export var page_table align(4096) linksection(".page_table") = std.mem.zeroes([8 << 9]u64);
 var page_table_next_ptr: [*]u64 = @ptrCast(&page_table);
 
 inline fn next_page_table_entry(comptime count: u64) *[count]u64 {
@@ -102,7 +102,36 @@ fn set_page_entry_pml4(pml4_ptr: [*]u64, virt_addr_start: *anyopaque, phys_addr_
     }
 }
 
+export var tss = std.mem.zeroes([25]u32);
+
+const Gdtr = extern struct {
+    limit: u16,
+    base: u64,
+};
+
+export var gdt = [7]u64{
+    0x0000000000000000, //Null descriptor
+    (0xf << 48) | (0xffff << 0) | (0x9a << 40) | (0xc << 52), //Kernel mode code seg
+    (0xf << 48) | (0xffff << 0) | (0x92 << 40) | (0xc << 52), //Kernel mode data seg
+    (0xf << 48) | (0xffff << 0) | (0xfa << 40) | (0xc << 52), //User mode code seg
+    (0xf << 48) | (0xffff << 0) | (0xf2 << 40) | (0xc << 52), //User mode data seg
+    0, //Task State Segment (lower half) - will be set at runtime
+    0, //Task State Segment (higher half) - will be set at runtime
+};
+
 pub export fn kmain() linksection(".text") callconv(.c) void {
+    // Load GDT
+    gdt[5] = ((@intFromPtr(&tss) & 0xffffff) >> 0 << 16) | ((@intFromPtr(&tss) & 0xff000000) >> 24 << 56) | (((@sizeOf(@TypeOf(tss)) - 1) & 0xf0000) >> 16 << 48) | (((@as(u64, @sizeOf(@TypeOf(tss))) - 1) & 0xffff) >> 0 << 0) | (0x89 << 40) | (0x0 << 52);
+    gdt[6] = ((@intFromPtr(&tss) & 0xffffffff00000000) << 0);
+    const gdtr = Gdtr{
+        .limit = @sizeOf(@TypeOf(gdt)),
+        .base = @intFromPtr(&gdt),
+    };
+    asm volatile ("lgdt (%[gdtr_ptr])"
+        :
+        : [gdtr_ptr] "{rax}" (&gdtr),
+        : .{});
+
     if (framebuffer_request.response == null) {
         hcf();
     }
