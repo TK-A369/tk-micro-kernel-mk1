@@ -120,6 +120,14 @@ export var gdt = [7]u64{
 };
 
 pub export fn kmain() linksection(".text") callconv(.c) void {
+    // Allow executing SSE/AVX instructions
+    // Set OSFXSR and OSXSAVE bits in CR4
+    asm volatile (
+        \\movq %cr4, %rax
+        \\orq $0x40200, %rax
+        \\movq %rax, %cr4
+        ::: .{ .rax = true });
+
     // Load GDT
     gdt[5] = ((@intFromPtr(&tss) & 0xffffff) >> 0 << 16) | ((@intFromPtr(&tss) & 0xff000000) >> 24 << 56) | (((@sizeOf(@TypeOf(tss)) - 1) & 0xf0000) >> 16 << 48) | (((@as(u64, @sizeOf(@TypeOf(tss))) - 1) & 0xffff) >> 0 << 0) | (0x89 << 40) | (0x0 << 52);
     gdt[6] = ((@intFromPtr(&tss) & 0xffffffff00000000) << 0);
@@ -152,7 +160,7 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     // log.log_writer.print("Hello world!\n1 + 2 = {d}\n", .{@as(u32, 17)}) catch {};
     // log.log_writer.print("Hello {s}!\n", .{"world"}) catch {};
     // log.log_writer.print("Some text...\n", .{}) catch {};
-    log.log_writer.print("Letter: {c}\n", .{'a'}) catch {};
+    // log.log_writer.print("Letter: {c}\n", .{'a'}) catch {};
     // log.log_writer.writeAll("Hello wrold!\nLorem ipsum dolor sir amet\n") catch {};
     log.log_writer.flush() catch {};
 
