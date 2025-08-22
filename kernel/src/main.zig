@@ -1,5 +1,8 @@
 const std = @import("std");
-const limine = @cImport(@cInclude("limine.h"));
+const limine = @cImport({
+    @cDefine("LIMINE_API_REVISION", "3");
+    @cInclude("limine.h");
+});
 
 const log = @import("log.zig");
 
@@ -193,9 +196,24 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     // log.log_writer.writeAll("Hello wrold!\nLorem ipsum dolor sir amet\n") catch {};
     log.log_writer.flush() catch {};
 
+    log.log_writer.writeAll("Memory map:\n") catch {};
     for (0..limine_memmap_request.response.*.entry_count) |i| {
-        // log_writer
-        _ = i;
+        const entry = limine_memmap_request.response.*.entries[i];
+        log.log_writer.print("base: {x}, length: {x}, type: {s}\n", .{
+            entry.*.base,
+            entry.*.length,
+            switch (entry.*.type) {
+                limine.LIMINE_MEMMAP_USABLE => "usable",
+                limine.LIMINE_MEMMAP_RESERVED => "reserved",
+                limine.LIMINE_MEMMAP_ACPI_RECLAIMABLE => "acpi_reclaimable",
+                limine.LIMINE_MEMMAP_ACPI_NVS => "acpi_nvs",
+                limine.LIMINE_MEMMAP_BAD_MEMORY => "bad_memory",
+                limine.LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE => "bootloader_reclaimable",
+                limine.LIMINE_MEMMAP_EXECUTABLE_AND_MODULES => "executable_and_modules",
+                limine.LIMINE_MEMMAP_FRAMEBUFFER => "framebuffer",
+                else => "unknown",
+            },
+        }) catch {};
     }
 
     while (true) {}
