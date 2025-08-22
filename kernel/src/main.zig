@@ -5,6 +5,8 @@ const limine = @cImport({
 });
 
 const log = @import("log.zig");
+const buddy_allocator = @import("buddy_allocator.zig");
+const linear_allocator = @import("linear_allocator.zig");
 
 // See LIMINE_BASE_REVISION macro in limine.h
 export var limine_base_revision linksection(".limine_requests") = [3]u64{
@@ -183,7 +185,7 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     }
 
     // Setup paging.
-    // Limine already sets it up, so virtaul address a+offset maps to physical address a.
+    // Limine already sets it up, so virtual address a+offset maps to physical address a.
     const pml4_ptr = next_page_table_entry(512);
     for (0..512) |i| {
         pml4_ptr[i] = 0;
