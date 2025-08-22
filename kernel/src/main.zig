@@ -186,10 +186,10 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
         pml4_ptr[i] = 0;
     }
 
-    // log.log_writer.print("Hello world!\n1 + 2 = {d}\n", .{@as(u32, 17)}) catch {};
-    // log.log_writer.print("Hello {s}!\n", .{"world"}) catch {};
-    // log.log_writer.print("Some text...\n", .{}) catch {};
-    // log.log_writer.print("Letter: {c}\n", .{'a'}) catch {};
+    log.log_writer.print("Hello world!\n1 + 2 = {d}\n", .{1 + 2}) catch {};
+    log.log_writer.print("Hello {s}!\n", .{"world"}) catch {};
+    log.log_writer.print("Some text...\n", .{}) catch {};
+    log.log_writer.print("Letter: {c}\n", .{'a'}) catch {};
     // log.log_writer.writeAll("Hello wrold!\nLorem ipsum dolor sir amet\n") catch {};
     log.log_writer.flush() catch {};
 
