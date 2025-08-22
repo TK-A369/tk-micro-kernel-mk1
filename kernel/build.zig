@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
     // target_cpu_features_sub_set.addFeature(std.Target.x86.Feature.x87);
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .x86_64,
-        .cpu_model = .{ .explicit = &std.Target.x86.cpu.skylake },
+        .cpu_model = .{ .explicit = &std.Target.x86.cpu.x86_64 },
         .cpu_features_sub = std.Target.Cpu.Feature.FeatureSetFns(std.Target.x86.Feature).featureSet(
             &[_]std.Target.x86.Feature{},
         ),
@@ -43,8 +43,8 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "tk_micro_kernel_mk1",
         .root_module = exe_mod,
-        .use_lld = true,
-        .use_llvm = true,
+        .use_lld = false,
+        .use_llvm = false,
     });
 
     exe.entry = .{ .symbol_name = "kmain" };

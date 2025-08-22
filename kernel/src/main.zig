@@ -119,14 +119,28 @@ export var gdt = [7]u64{
     0, //Task State Segment (higher half) - will be set at runtime
 };
 
+export var cpuid: [4]u32 = undefined;
+
 pub export fn kmain() linksection(".text") callconv(.c) void {
+    // Read CPUID
+    // asm volatile (
+    //     \\movq $0x01, %rax
+    //     \\cpuid
+    //     \\movl %eax, (%[result_ptr])
+    //     \\movl %ebx, 0x4(%[result_ptr])
+    //     \\movl %ecx, 0x8(%[result_ptr])
+    //     \\movl %edx, 0xc(%[result_ptr])
+    //     :
+    //     : [result_ptr] "{r8}" (&cpuid),
+    //     : .{ .rax = true, .rbx = true, .rcx = true, .rdx = true });
+
     // Allow executing SSE/AVX instructions
     // Set OSFXSR and OSXSAVE bits in CR4
-    asm volatile (
-        \\movq %cr4, %rax
-        \\orq $0x40200, %rax
-        \\movq %rax, %cr4
-        ::: .{ .rax = true });
+    // asm volatile (
+    //     \\movq %cr4, %rax
+    //     \\orq $0x40200, %rax
+    //     \\movq %rax, %cr4
+    //     ::: .{ .rax = true });
 
     // Load GDT
     gdt[5] = ((@intFromPtr(&tss) & 0xffffff) >> 0 << 16) | ((@intFromPtr(&tss) & 0xff000000) >> 24 << 56) | (((@sizeOf(@TypeOf(tss)) - 1) & 0xf0000) >> 16 << 48) | (((@as(u64, @sizeOf(@TypeOf(tss))) - 1) & 0xffff) >> 0 << 0) | (0x89 << 40) | (0x0 << 52);
