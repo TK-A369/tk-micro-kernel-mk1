@@ -123,24 +123,39 @@ export var cpuid: [4]u32 = undefined;
 
 pub export fn kmain() linksection(".text") callconv(.c) void {
     // Read CPUID
-    // asm volatile (
-    //     \\movq $0x01, %rax
-    //     \\cpuid
-    //     \\movl %eax, (%[result_ptr])
-    //     \\movl %ebx, 0x4(%[result_ptr])
-    //     \\movl %ecx, 0x8(%[result_ptr])
-    //     \\movl %edx, 0xc(%[result_ptr])
-    //     :
-    //     : [result_ptr] "{r8}" (&cpuid),
-    //     : .{ .rax = true, .rbx = true, .rcx = true, .rdx = true });
+    asm volatile (
+        \\movq $0x01, %rax
+        \\cpuid
+        \\movl %eax, (%[result_ptr])
+        \\movl %ebx, 0x4(%[result_ptr])
+        \\movl %ecx, 0x8(%[result_ptr])
+        \\movl %edx, 0xc(%[result_ptr])
+        :
+        : [result_ptr] "{r8}" (&cpuid),
+        : .{ .rax = true, .rbx = true, .rcx = true, .rdx = true });
 
     // Allow executing SSE/AVX instructions
-    // Set OSFXSR and OSXSAVE bits in CR4
-    // asm volatile (
-    //     \\movq %cr4, %rax
-    //     \\orq $0x40200, %rax
-    //     \\movq %rax, %cr4
-    //     ::: .{ .rax = true });
+    // For some reason Zig will emit those here and there, and I haven't found a way to disable it
+    // Subtracting those from the feature set prevents successful compilation
+    // See: https://osdev.wiki/wiki/SSE
+    asm volatile (
+        \\movq %cr0, %rax
+        \\movl $0xfffffffb, %ecx #and instruction takes up to 32 bits of immediate, so we use this workaround
+        \\andl %ecx, %eax #clear CR0.EM
+        \\orq $0x00000002, %rax #set CR0.MP
+        \\movq %rax, %cr0
+        \\movq %cr4, %rax
+        \\orq $0x00040600, %rax #set CR4.{OSFXS, OSXMMEXCPT, OSXSAVE}
+        \\movq %rax, %cr4
+        \\mov $0, %rcx
+        \\xgetbv #load XCR0 register
+        \\orl $0x00000007, %eax #set XCR0.{X87, SSE, AVX}
+        \\xsetbv #store to XCR0
+        ::: .{
+            .rax = true,
+            .rcx = true,
+            .rdx = true,
+        });
 
     // Load GDT
     gdt[5] = ((@intFromPtr(&tss) & 0xffffff) >> 0 << 16) | ((@intFromPtr(&tss) & 0xff000000) >> 24 << 56) | (((@sizeOf(@TypeOf(tss)) - 1) & 0xf0000) >> 16 << 48) | (((@as(u64, @sizeOf(@TypeOf(tss))) - 1) & 0xffff) >> 0 << 0) | (0x89 << 40) | (0x0 << 52);
