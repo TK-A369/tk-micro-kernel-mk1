@@ -103,6 +103,9 @@ pub const BuddyAllocator = struct {
             self.bitmaps[curr_bitmap_num - 1][(bit_num + 1) / 16] &= ~(@as(u32, 0x10000) << @truncate((bit_num + 1) % 16));
         }
 
+        // Mark the choosen block as used (00)
+        self.bitmaps[curr_bitmap_num][bit_num / 16] &= ~(@as(u32, 0x10001) << @truncate(bit_num % 16));
+
         return self.start + (bit_num * self.page_size);
     }
 
