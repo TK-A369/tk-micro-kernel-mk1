@@ -114,7 +114,7 @@ pub const BuddyAllocator = struct {
 
         var bit_num = page_num;
         var bitmap_num: u64 = 0;
-        while (bitmap_num < self.bitmaps.len) {
+        while (bitmap_num < self.bitmaps.len - 1) {
             if ((self.bitmaps[bitmap_num][bit_num / 16] >> @truncate(bit_num % 16)) & 0x10001 == 0x00000) {
                 if ((self.bitmaps[bitmap_num + 1][(bit_num / 2) / 16] >> @truncate((bit_num / 2) % 16)) & 0x10001 == 0x10000) {
                     // This block is used, and its parent is split
@@ -137,6 +137,8 @@ pub const BuddyAllocator = struct {
                 self.bitmaps[bitmap_num + 1][(bit_num / 2) / 16] |= (@as(u32, 0x00001) << @truncate((bit_num / 2) % 16));
                 self.bitmaps[bitmap_num + 1][(bit_num / 2) / 16] &= ~(@as(u32, 0x10000) << @truncate((bit_num / 2) % 16));
             }
+            bit_num /= 2;
+            bitmap_num += 1;
         }
     }
 };
