@@ -35,12 +35,15 @@ pub const BuddyAllocator = struct {
             curr_bits_count /= 2;
         }
 
-        return .{
+        var result = BuddyAllocator{
             .start = start,
             .bitmaps = bitmaps,
             .page_size = page_size,
             .pages_count = pages_count,
         };
+        result.clear();
+
+        return result;
     }
 
     pub fn clear(self: *BuddyAllocator) void {
@@ -49,15 +52,15 @@ pub const BuddyAllocator = struct {
                 for (bitmap) |*bitgroup| {
                     bitgroup.* = 0x0000ffff;
                 }
-                var last_bitgroup_used_bits = self.pages_count >> self.bitmaps.size % 16;
+                var last_bitgroup_used_bits = self.pages_count >> @truncate(self.bitmaps.len % 16);
                 if (last_bitgroup_used_bits == 0) {
                     last_bitgroup_used_bits = 16;
                 }
                 const last_bitgroup_padding_bits = 16 - last_bitgroup_used_bits;
-                bitmap[bitmap.len - 1] >>= last_bitgroup_padding_bits;
+                bitmap[bitmap.len - 1] >>= @truncate(last_bitgroup_padding_bits);
             } else {
-                for (bitmap) |bitgroup| {
-                    bitgroup = 0x00000000;
+                for (bitmap) |*bitgroup| {
+                    bitgroup.* = 0x00000000;
                 }
             }
         }

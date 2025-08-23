@@ -198,6 +198,7 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     // log.log_writer.writeAll("Hello wrold!\nLorem ipsum dolor sir amet\n") catch {};
     log.log_writer.flush() catch {};
 
+    // Note that this is the physical address, and Limine has already set us up paging and MMU
     var largest_ram_section_addr: u64 = 0;
     var largest_ram_section_size: u64 = 0;
     log.log_writer.writeAll("Memory map:\n") catch {};
@@ -231,9 +232,9 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     }
 
     var lin_alloc = linear_allocator.LinearAllocator{
-        .start = @ptrFromInt(largest_ram_section_addr),
+        .start = @ptrFromInt(largest_ram_section_addr + limine_hhdm_request.response.*.offset),
         .size = largest_ram_section_size,
-        .next = @ptrFromInt(largest_ram_section_addr),
+        .next = @ptrFromInt(largest_ram_section_addr + limine_hhdm_request.response.*.offset),
     };
     const buddy_mem = lin_alloc.alloc(0x1000 * (256 + 1)) catch {
         hcf();
