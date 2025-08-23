@@ -198,6 +198,8 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     // log.log_writer.writeAll("Hello wrold!\nLorem ipsum dolor sir amet\n") catch {};
     log.log_writer.flush() catch {};
 
+    var largest_ram_section_addr: u64 = 0;
+    var largest_ram_section_size: u64 = 0;
     log.log_writer.writeAll("Memory map:\n") catch {};
     for (0..limine_memmap_request.response.*.entry_count) |i| {
         const entry = limine_memmap_request.response.*.entries[i];
@@ -216,7 +218,34 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
                 else => "unknown",
             },
         }) catch {};
+
+        switch (entry.*.type) {
+            limine.LIMINE_MEMMAP_USABLE => {
+                if (entry.*.length > largest_ram_section_size) {
+                    largest_ram_section_addr = entry.*.base;
+                    largest_ram_section_size = entry.*.length;
+                }
+            },
+            else => {},
+        }
     }
+
+    var lin_alloc = linear_allocator.LinearAllocator{
+        .start = @ptrFromInt(largest_ram_section_addr),
+        .size = largest_ram_section_size,
+        .next = @ptrFromInt(largest_ram_section_addr),
+    };
+    const buddy_mem = lin_alloc.alloc(0x1000 * (256 + 1)) catch {
+        hcf();
+    };
+    const buddy_mem_aligned: [*]u8 = @ptrFromInt((@intFromPtr(buddy_mem) & 0xfffffffffffff000) + 0x1000);
+    var buddy_alloc = buddy_allocator.BuddyAllocator.initWithOther(&lin_alloc, buddy_mem_aligned, 0x1000, 256, 4) catch {
+        hcf();
+    };
+    const some_mem = buddy_alloc.alloc(64) catch {
+        hcf();
+    };
+    _ = some_mem;
 
     while (true) {}
 }

@@ -6,7 +6,7 @@ pub const LinearAllocator = struct {
     pub fn alloc(self: *LinearAllocator, size: u64) error{OutOfMemory}![*]u8 {
         const result = self.next;
         self.next += size;
-        if (self.next > self.start + self.size) {
+        if (@intFromPtr(self.next) > @intFromPtr(self.start) + self.size) {
             return error.OutOfMemory;
         }
         return result;

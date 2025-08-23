@@ -1,4 +1,4 @@
-const BuddyAllocator = struct {
+pub const BuddyAllocator = struct {
     start: [*]u8,
     //bits 0-15 tell whether a block is used: 0 - used; 1 - free
     //bits 16-31 tell whether a block is split
@@ -11,23 +11,25 @@ const BuddyAllocator = struct {
     pages_count: u64,
 
     // Currently it is intended to be used with LinearAllocator
-    pub fn init_with_other(other_allocator: anytype, start: [*]u8, page_size: u64, pages_count: u64, bitmaps_count: u64) error{OutOfMemory}!BuddyAllocator {
-        var total_bitmaps_size = 0;
+    pub fn initWithOther(other_allocator: anytype, start: [*]u8, page_size: u64, pages_count: u64, bitmaps_count: u64) error{OutOfMemory}!BuddyAllocator {
+        var total_bitmaps_size: u64 = 0;
         var curr_bits_count = pages_count;
         for (0..bitmaps_count) |_| {
             total_bitmaps_size += (curr_bits_count + 16 - 1) / 16;
             curr_bits_count /= 2;
         }
-        const bitmaps_array: [*]u8 = try other_allocator.alloc(total_bitmaps_size * 4 + bitmaps_count * @sizeOf([]u32));
-        const bitmaps = @as([*][]u32, @ptrCast(
-            bitmaps_array + total_bitmaps_size * 4,
-        ))[0..bitmaps_count];
+        const bitmaps_array: [*]u8 = try other_allocator.*.alloc(total_bitmaps_size * 4 + bitmaps_count * @sizeOf([]u32) + 8);
+        const bitmaps_array_aligned = (@intFromPtr(bitmaps_array) & 0xfffffffffffffff4) + 8;
+        const bitmaps = @as(
+            [*][]u32,
+            @ptrFromInt(bitmaps_array_aligned + total_bitmaps_size * 4),
+        )[0..bitmaps_count];
 
-        var curr_offset = 0;
+        var curr_offset: u64 = 0;
         curr_bits_count = pages_count;
         for (0..bitmaps_count) |i| {
-            bitmaps[i] = @as([*]u32, @ptrCast(
-                bitmaps_array + curr_offset * 4,
+            bitmaps[i] = @as([*]u32, @ptrFromInt(
+                bitmaps_array_aligned + curr_offset * 4,
             ))[0..((curr_bits_count + 16 - 1) / 16)];
             curr_offset += (curr_bits_count + 16 - 1) / 16;
             curr_bits_count /= 2;
@@ -88,14 +90,14 @@ const BuddyAllocator = struct {
         }
         while (curr_bitmap_num > bitmap_num) : (curr_bitmap_num -= 1) {
             // Mark the larger block as split (10)
-            self.bitmaps[curr_bitmap_num][bit_num / 16] |= (0x10000 << (bit_num % 16));
-            self.bitmaps[curr_bitmap_num][bit_num / 16] &= ~(0x1 << (bit_num % 16));
+            self.bitmaps[curr_bitmap_num][bit_num / 16] |= (@as(u32, 0x10000) << @truncate(bit_num % 16));
+            self.bitmaps[curr_bitmap_num][bit_num / 16] &= ~(@as(u32, 0x1) << @truncate(bit_num % 16));
             bit_num *= 2;
             // Mark two child blocks as free (01)
-            self.bitmaps[curr_bitmap_num - 1][bit_num / 16] |= (0x1 << (bit_num % 16));
-            self.bitmaps[curr_bitmap_num - 1][bit_num / 16] &= ~(0x10000 << (bit_num % 16));
-            self.bitmaps[curr_bitmap_num - 1][(bit_num + 1) / 16] |= (0x1 << ((bit_num + 1) % 16));
-            self.bitmaps[curr_bitmap_num - 1][(bit_num + 1) / 16] &= ~(0x10000 << ((bit_num + 1) % 16));
+            self.bitmaps[curr_bitmap_num - 1][bit_num / 16] |= (@as(u32, 0x1) << @truncate(bit_num % 16));
+            self.bitmaps[curr_bitmap_num - 1][bit_num / 16] &= ~(@as(u32, 0x10000) << @truncate(bit_num % 16));
+            self.bitmaps[curr_bitmap_num - 1][(bit_num + 1) / 16] |= (@as(u32, 0x1) << @truncate((bit_num + 1) % 16));
+            self.bitmaps[curr_bitmap_num - 1][(bit_num + 1) / 16] &= ~(@as(u32, 0x10000) << @truncate((bit_num + 1) % 16));
         }
 
         return self.start + (bit_num * self.page_size);
