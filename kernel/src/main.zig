@@ -4,9 +4,11 @@ const limine = @cImport({
     @cInclude("limine.h");
 });
 
+const misc = @import("misc.zig");
 const log = @import("log.zig");
 const buddy_allocator = @import("buddy_allocator.zig");
 const linear_allocator = @import("linear_allocator.zig");
+const paging = @import("paging.zig");
 
 // See LIMINE_BASE_REVISION macro in limine.h
 export var limine_base_revision linksection(".limine_requests") = [3]u64{
@@ -53,59 +55,53 @@ export var limine_requests_end_marker linksection(".limine_requests_end") = [2]u
     0x9572709f31764c62,
 };
 
-fn hcf() noreturn {
-    while (true) {
-        asm volatile ("hlt");
-    }
-}
-
 pub const panic = std.debug.FullPanic(myPanicHandler);
 
 fn myPanicHandler(msg: []const u8, first_trace_addr: ?usize) noreturn {
     _ = msg;
     _ = first_trace_addr;
-    hcf();
+    misc.hcf();
 }
 
-export var page_table align(4096) linksection(".page_table") = std.mem.zeroes([8 << 9]u64);
-var page_table_next_ptr: [*]u64 = @ptrCast(&page_table);
+// export var page_table align(4096) linksection(".page_table") = std.mem.zeroes([8 << 9]u64);
+// var page_table_next_ptr: [*]u64 = @ptrCast(&page_table);
+//
+// inline fn next_page_table_entry(comptime count: u64) *[count]u64 {
+//     const result: *[count]u64 = @ptrCast(page_table_next_ptr);
+//     page_table_next_ptr += count;
+//     if (page_table_next_ptr - @as([*]u64, @ptrCast(&page_table)) >= page_table.len) {
+//         misc.hcf();
+//     }
+//     return result;
+// }
 
-inline fn next_page_table_entry(comptime count: u64) *[count]u64 {
-    const result: *[count]u64 = @ptrCast(page_table_next_ptr);
-    page_table_next_ptr += count;
-    if (page_table_next_ptr - @as([*]u64, @ptrCast(&page_table)) >= page_table.len) {
-        hcf();
-    }
-    return result;
-}
-
-fn set_page_entry_pml4(pml4_ptr: [*]u64, virt_addr_start: *anyopaque, phys_addr_start: usize, size: usize) void {
-    if (size < (1 << 30)) {
-        // It will fit in PDPT page
-        const pml4_idx = (virt_addr_start >> 39) & 0x1ff;
-        if (pml4_ptr[pml4_idx] & 0x1 == 0) {
-            // This PML4 entry hasn't been initialized yet - the present bit is cleared
-            pml4_ptr[pml4_idx] = 0;
-        }
-    } else {
-        // We can't make PML4 entry a terminal entry
-        // Instead, setup multiple PDPT entries
-        var size_rem = size;
-        var virt_addr_now = virt_addr_start;
-        var phys_addr_now = phys_addr_start;
-        while (true) {
-            if (size_rem < (1 << 30)) {
-                set_page_entry_pml4(pml4_ptr, virt_addr_now, phys_addr_now, size_rem);
-                break;
-            } else {
-                set_page_entry_pml4(pml4_ptr, virt_addr_now, phys_addr_now, 1 << 30);
-                size_rem -= (1 << 30);
-                virt_addr_now += (1 << 30);
-                phys_addr_now += (1 << 30);
-            }
-        }
-    }
-}
+// fn set_page_entry_pml4(pml4_ptr: [*]u64, virt_addr_start: *anyopaque, phys_addr_start: usize, size: usize) void {
+//     if (size < (1 << 30)) {
+//         // It will fit in PDPT page
+//         const pml4_idx = (virt_addr_start >> 39) & 0x1ff;
+//         if (pml4_ptr[pml4_idx] & 0x1 == 0) {
+//             // This PML4 entry hasn't been initialized yet - the present bit is cleared
+//             pml4_ptr[pml4_idx] = 0;
+//         }
+//     } else {
+//         // We can't make PML4 entry a terminal entry
+//         // Instead, setup multiple PDPT entries
+//         var size_rem = size;
+//         var virt_addr_now = virt_addr_start;
+//         var phys_addr_now = phys_addr_start;
+//         while (true) {
+//             if (size_rem < (1 << 30)) {
+//                 set_page_entry_pml4(pml4_ptr, virt_addr_now, phys_addr_now, size_rem);
+//                 break;
+//             } else {
+//                 set_page_entry_pml4(pml4_ptr, virt_addr_now, phys_addr_now, 1 << 30);
+//                 size_rem -= (1 << 30);
+//                 virt_addr_now += (1 << 30);
+//                 phys_addr_now += (1 << 30);
+//             }
+//         }
+//     }
+// }
 
 export var tss = std.mem.zeroes([25]u32);
 
@@ -175,7 +171,7 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
         : .{});
 
     if (framebuffer_request.response == null) {
-        hcf();
+        misc.hcf();
     }
 
     const fb = framebuffer_request.response.*.framebuffers[0];
@@ -186,10 +182,10 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
 
     // Setup paging.
     // Limine already sets it up, so virtual address a+offset maps to physical address a.
-    const pml4_ptr = next_page_table_entry(512);
-    for (0..512) |i| {
-        pml4_ptr[i] = 0;
-    }
+    // const pml4_ptr = next_page_table_entry(512);
+    // for (0..512) |i| {
+    //     pml4_ptr[i] = 0;
+    // }
 
     log.log_writer.print("Hello world!\n1 + 2 = {d}\n", .{1 + 2}) catch {};
     log.log_writer.print("Hello {s}!\n", .{"world"}) catch {};
@@ -237,22 +233,22 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
         .next = @ptrFromInt(largest_ram_section_addr + limine_hhdm_request.response.*.offset),
     };
     const buddy_mem = lin_alloc.alloc(0x1000 * (256 + 1)) catch {
-        hcf();
+        misc.hcf();
     };
     const buddy_mem_aligned: [*]u8 = @ptrFromInt((@intFromPtr(buddy_mem) & 0xfffffffffffff000) + 0x1000);
     var buddy_alloc = buddy_allocator.BuddyAllocator.initWithOther(&lin_alloc, buddy_mem_aligned, 0x1000, 256, 4) catch {
-        hcf();
+        misc.hcf();
     };
     const some_mem_1 = buddy_alloc.alloc(64) catch {
-        hcf();
+        misc.hcf();
     };
     const some_mem_2 = buddy_alloc.alloc(4097) catch {
-        hcf();
+        misc.hcf();
     };
     _ = some_mem_2;
     buddy_alloc.free(some_mem_1);
     const some_mem_3 = buddy_alloc.alloc(8192) catch {
-        hcf();
+        misc.hcf();
     };
     _ = some_mem_3;
 
