@@ -8,7 +8,38 @@ const BuddyAllocator = struct {
     // - 01 - free
     bitmaps: [][]u32,
     page_size: u64,
-    blocks_count: u64,
+    pages_count: u64,
+
+    // Currently it is intended to be used with LinearAllocator
+    pub fn init_with_other(other_allocator: anytype, start: [*]u8, page_size: u64, pages_count: u64, bitmaps_count: u64) error{OutOfMemory}!BuddyAllocator {
+        var total_bitmaps_size = 0;
+        var curr_bits_count = pages_count;
+        for (0..bitmaps_count) |_| {
+            total_bitmaps_size += (curr_bits_count + 16 - 1) / 16;
+            curr_bits_count /= 2;
+        }
+        const bitmaps_array: [*]u8 = try other_allocator.alloc(total_bitmaps_size * 4 + bitmaps_count * @sizeOf([]u32));
+        const bitmaps = @as([*][]u32, @ptrCast(
+            bitmaps_array + total_bitmaps_size * 4,
+        ))[0..bitmaps_count];
+
+        var curr_offset = 0;
+        curr_bits_count = pages_count;
+        for (0..bitmaps_count) |i| {
+            bitmaps[i] = @as([*]u32, @ptrCast(
+                bitmaps_array + curr_offset * 4,
+            ))[0..((curr_bits_count + 16 - 1) / 16)];
+            curr_offset += (curr_bits_count + 16 - 1) / 16;
+            curr_bits_count /= 2;
+        }
+
+        return .{
+            .start = start,
+            .bitmaps = bitmaps,
+            .page_size = page_size,
+            .pages_count = pages_count,
+        };
+    }
 
     pub fn clear(self: *BuddyAllocator) void {
         for (0.., self.bitmaps) |i, bitmap| {
@@ -16,7 +47,7 @@ const BuddyAllocator = struct {
                 for (bitmap) |*bitgroup| {
                     bitgroup.* = 0x0000ffff;
                 }
-                var last_bitgroup_used_bits = self.blocks_count >> self.bitmaps.size % 16;
+                var last_bitgroup_used_bits = self.pages_count >> self.bitmaps.size % 16;
                 if (last_bitgroup_used_bits == 0) {
                     last_bitgroup_used_bits = 16;
                 }
