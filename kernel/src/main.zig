@@ -243,10 +243,18 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     var buddy_alloc = buddy_allocator.BuddyAllocator.initWithOther(&lin_alloc, buddy_mem_aligned, 0x1000, 256, 4) catch {
         hcf();
     };
-    const some_mem = buddy_alloc.alloc(64) catch {
+    const some_mem_1 = buddy_alloc.alloc(64) catch {
         hcf();
     };
-    _ = some_mem;
+    const some_mem_2 = buddy_alloc.alloc(4097) catch {
+        hcf();
+    };
+    _ = some_mem_2;
+    buddy_alloc.free(some_mem_1);
+    const some_mem_3 = buddy_alloc.alloc(8192) catch {
+        hcf();
+    };
+    _ = some_mem_3;
 
     while (true) {}
 }

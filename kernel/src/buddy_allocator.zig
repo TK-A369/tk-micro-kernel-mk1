@@ -113,13 +113,13 @@ pub const BuddyAllocator = struct {
         const page_num = (data - self.start) / self.page_size;
 
         var bit_num = page_num;
-        var bitmap_num = 0;
+        var bitmap_num: u64 = 0;
         while (bitmap_num < self.bitmaps.len) {
-            if ((self.bitmaps[bitmap_num][bit_num / 16] >> (bit_num % 16)) & 0x10001 == 0x00000) {
-                if ((self.bitmaps[bitmap_num + 1][(bit_num / 2) / 16] >> ((bit_num / 2) % 16)) & 0x10001 == 0x10000) {
+            if ((self.bitmaps[bitmap_num][bit_num / 16] >> @truncate(bit_num % 16)) & 0x10001 == 0x00000) {
+                if ((self.bitmaps[bitmap_num + 1][(bit_num / 2) / 16] >> @truncate((bit_num / 2) % 16)) & 0x10001 == 0x10000) {
                     // This block is used, and its parent is split
-                    self.bitmaps[bitmap_num][bit_num / 16] |= (0x00001 << (bit_num % 16));
-                    self.bitmaps[bitmap_num][bit_num / 16] &= ~(0x10000 << (bit_num % 16)); // Actually redundant, but we clear that bit explicitly for clarity
+                    self.bitmaps[bitmap_num][bit_num / 16] |= (@as(u32, 0x00001) << @truncate(bit_num % 16));
+                    self.bitmaps[bitmap_num][bit_num / 16] &= ~(@as(u32, 0x10000) << @truncate(bit_num % 16)); // Actually redundant, but we clear that bit explicitly for clarity
                     break;
                 }
             }
@@ -127,15 +127,15 @@ pub const BuddyAllocator = struct {
             bitmap_num += 1;
         }
         while (bitmap_num < self.bitmaps.len - 1) {
-            if ((self.bitmaps[bitmap_num][bit_num / 16] >> (bit_num % 16)) & 0x10001 == 0x00001 and (self.bitmaps[bitmap_num][(bit_num ^ 0x1) / 16] >> ((bit_num ^ 0x1) % 16)) & 0x10001 == 0x00001) {
+            if ((self.bitmaps[bitmap_num][bit_num / 16] >> @truncate(bit_num % 16)) & 0x10001 == 0x00001 and (self.bitmaps[bitmap_num][(bit_num ^ 0x1) / 16] >> @truncate((bit_num ^ 0x1) % 16)) & 0x10001 == 0x00001) {
                 // Both the current block and its buddy are free
                 // This should guarantee that their parent is split
                 // Set the current block and its buddy to used or part of a larger block
-                self.bitmaps[bitmap_num][bit_num / 16] &= ~(0x10001 << (bit_num % 16));
-                self.bitmaps[bitmap_num][(bit_num ^ 0x1) / 16] &= ~(0x10001 << ((bit_num ^ 0x1) % 16));
+                self.bitmaps[bitmap_num][bit_num / 16] &= ~(@as(u32, 0x10001) << @truncate(bit_num % 16));
+                self.bitmaps[bitmap_num][(bit_num ^ 0x1) / 16] &= ~(@as(u32, 0x10001) << @truncate((bit_num ^ 0x1) % 16));
                 // Set their parent block to free
-                self.bitmaps[bitmap_num + 1][(bit_num / 2) / 16] |= (0x00001 << ((bit_num / 2) % 16));
-                self.bitmaps[bitmap_num + 1][(bit_num / 2) / 16] &= ~(0x10000 << ((bit_num / 2) % 16));
+                self.bitmaps[bitmap_num + 1][(bit_num / 2) / 16] |= (@as(u32, 0x00001) << @truncate((bit_num / 2) % 16));
+                self.bitmaps[bitmap_num + 1][(bit_num / 2) / 16] &= ~(@as(u32, 0x10000) << @truncate((bit_num / 2) % 16));
             }
         }
     }
