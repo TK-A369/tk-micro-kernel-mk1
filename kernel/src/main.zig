@@ -237,7 +237,14 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
         misc.hcf();
     };
     const buddy_mem_aligned: [*]u8 = @ptrFromInt((@intFromPtr(buddy_mem) & 0xfffffffffffff000) + 0x1000);
-    var buddy_alloc = buddy_allocator.BuddyAllocator.initWithOther(&lin_alloc, buddy_mem_aligned, 0x1000, 256, 4) catch {
+    var buddy_alloc = buddy_allocator.BuddyAllocator.initWithOther(
+        &lin_alloc,
+        limine_hhdm_request.response.*.offset,
+        buddy_mem_aligned,
+        0x1000,
+        256,
+        4,
+    ) catch {
         misc.hcf();
     };
     const some_mem_1 = buddy_alloc.alloc(64) catch {

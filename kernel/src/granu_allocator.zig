@@ -125,7 +125,7 @@ pub const GranuAllocator = struct {
     /// This DOES NOT insert the new chunk into the linked list
     /// User is expected to call insertChunk afterwards
     fn createChunk(self: *const GranuAllocator, elem_size: u64, pages_count: u64) error{OutOfMemory}!*MemChunk {
-        const chunk_mem = try self.buddy_alloc.alloc(pages_count * 0x1000);
+        const chunk_mem = (try self.buddy_alloc.alloc(pages_count * 0x1000)) + self.hhdm_offset;
         MemChunk.init(chunk_mem, elem_size, pages_count);
         return @ptrCast(@alignCast(chunk_mem));
     }

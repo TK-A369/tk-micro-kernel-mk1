@@ -11,7 +11,15 @@ pub const BuddyAllocator = struct {
     pages_count: u64,
 
     // Currently it is intended to be used with LinearAllocator
-    pub fn initWithOther(other_allocator: anytype, start: [*]u8, page_size: u64, pages_count: u64, bitmaps_count: u64) error{OutOfMemory}!BuddyAllocator {
+    // The other_allocator should return physical address, and this fucntion will add hhdm_offset to it
+    pub fn initWithOther(
+        other_allocator: anytype,
+        hhdm_offset: u64,
+        start: [*]u8,
+        page_size: u64,
+        pages_count: u64,
+        bitmaps_count: u64,
+    ) error{OutOfMemory}!BuddyAllocator {
         var total_bitmaps_size: u64 = 0;
         var curr_bits_count = pages_count;
         for (0..bitmaps_count) |_| {
@@ -19,7 +27,7 @@ pub const BuddyAllocator = struct {
             curr_bits_count /= 2;
         }
         const bitmaps_array: [*]u8 = try other_allocator.*.alloc(total_bitmaps_size * 4 + bitmaps_count * @sizeOf([]u32) + 8);
-        const bitmaps_array_aligned = (@intFromPtr(bitmaps_array) & 0xfffffffffffffff4) + 8;
+        const bitmaps_array_aligned = (@intFromPtr(bitmaps_array) & 0xfffffffffffffff4) + 8 + hhdm_offset;
         const bitmaps = @as(
             [*][]u32,
             @ptrFromInt(bitmaps_array_aligned + total_bitmaps_size * 4),
