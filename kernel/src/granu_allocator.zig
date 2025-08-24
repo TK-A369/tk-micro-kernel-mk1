@@ -25,7 +25,7 @@ pub const GranuAllocator = struct {
 
         fn calcExactElemCount(self: *MemChunk) u64 {
             const space_total = self.pages_count * 0x1000;
-            const bitmap_space = self.bitmap_size * 4;
+            const bitmap_space = self.bitmap_size * 8;
             const space_remaining = space_total - @sizeOf(MemChunk) - bitmap_space;
             return space_remaining / self.elem_size;
         }
@@ -57,7 +57,7 @@ pub const GranuAllocator = struct {
                     bitgroup.* &= ~(@as(u64, 1) << @truncate(free_pos));
 
                     free_pos += 64 * i;
-                    const result_ptr: [*]u8 = @as([*]u8, @ptrCast(self)) + @sizeOf(MemChunk) + self.bitmap_size * 8;
+                    const result_ptr: [*]u8 = @as([*]u8, @ptrCast(self)) + @sizeOf(MemChunk) + self.bitmap_size * 8 + free_pos * self.elem_size;
                     return result_ptr;
                 }
             }
