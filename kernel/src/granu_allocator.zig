@@ -26,7 +26,7 @@ pub const GranuAllocator = struct {
         fn calcExactElemCount(self: *MemChunk) u64 {
             const space_total = self.pages_count * 0x1000;
             const bitmap_space = self.bitmap_size * 4;
-            const space_remaining = space_total - bitmap_space;
+            const space_remaining = space_total - @sizeOf(MemChunk) - bitmap_space;
             return space_remaining / self.elem_size;
         }
 
@@ -42,18 +42,32 @@ pub const GranuAllocator = struct {
             for (bitmap) |*bitgroup| {
                 bitgroup.* = 0xffffffff;
             }
-            var last_bitgroup_used = self.elem_count % 32;
+            var last_bitgroup_used = self.elem_count % 64;
             if (last_bitgroup_used == 0) {
-                last_bitgroup_used = 32;
+                last_bitgroup_used = 64;
             }
-            const last_bitgroup_padding = 32 - last_bitgroup_used;
+            const last_bitgroup_padding = 64 - last_bitgroup_used;
             bitmap[bitmap.len - 1] >>= last_bitgroup_padding;
+        }
+
+        fn alloc(self: *MemChunk) error{OutOfMemory}![*]u8 {
+            for (0.., self.getBitmapSlice()) |i, bitgroup| {
+                if (@popCount(bitgroup) > 0) {
+                    var free_pos = @ctz(bitgroup);
+                    bitgroup &= ~(1 << free_pos);
+
+                    free_pos += 64 * i;
+                    const result_ptr: [*]u8 = @as([*]u8, @ptrCast(self)) + @sizeOf(MemChunk) + self.bitmap_size * 8;
+                    return result_ptr;
+                }
+            }
+            return error.OutOfMemory;
         }
     };
 
     const AllocHints = struct {
-        /// If true, always create a chunk of this specific size
-        /// If false, never create a chunk of this specific size unless necessary
+        /// If true, always create a chunk of this specific size, unless it already exists and has free space
+        /// If false, never create a chunk of this specific size, unless creating a new chunk is necessary
         /// If null, create a chunk of this specific size only if the smallest chunk for objects greater than this is more than 2 times the size of requested object
         create_sized_chunk: ?bool = null,
         /// How many objects (at least) should fit into a chunk, if it would be created
@@ -119,13 +133,29 @@ pub const GranuAllocator = struct {
     pub fn alloc(self: *GranuAllocator, size: u64, hints: AllocHints) error{OutOfMemory}![*]u8 {
         const found_chunk = self.searchForChunkGe(size);
         if (found_chunk) |found_chunk_nn| {
-            _ = found_chunk_nn;
-        } else {
-            var pages_count: u64 = undefined;
-            pages_count = (size * (hints.objects_count orelse 1) + 0x1000 - 1) / 0x1000;
-            const new_chunk = try self.createChunk(size, pages_count);
-            self.insertChunk(new_chunk);
-            // TODO: Actually allocate space in that chunk
+            const accept_chunk = accept_chunk_blk: {
+                if (hints.create_sized_chunk) |csc| {
+                    if (csc) {
+                        break :accept_chunk_blk found_chunk_nn.elem_size == size;
+                    } else {
+                        break :accept_chunk_blk true;
+                    }
+                } else {
+                    break :accept_chunk_blk found_chunk_nn.elem_size <= 2 * size;
+                }
+            };
+            if (accept_chunk) {
+                if (found_chunk_nn.alloc()) |result| {
+                    return result;
+                }
+            }
         }
+        var pages_count: u64 = undefined;
+        pages_count = (size * (hints.objects_count orelse 1) + 0x1000 - 1) / 0x1000;
+        const new_chunk = try self.createChunk(size, pages_count);
+        self.insertChunk(new_chunk);
+
+        const result = new_chunk.alloc() orelse unreachable;
+        return result;
     }
 };
