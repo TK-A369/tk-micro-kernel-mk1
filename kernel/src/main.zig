@@ -258,7 +258,14 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
         .hhdm_offset = limine_hhdm_request.response.*.offset,
         .buddy_alloc = &buddy_alloc,
     };
-    granu_alloc.alloc(16, .{});
+    const another_mem_1 = granu_alloc.alloc(16, .{}) catch {
+        misc.hcf();
+    };
+    _ = another_mem_1;
+    const another_mem_2 = granu_alloc.alloc(12, .{}) catch {
+        misc.hcf();
+    };
+    _ = another_mem_2;
 
     while (true) {}
 }

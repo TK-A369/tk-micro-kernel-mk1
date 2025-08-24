@@ -20,7 +20,7 @@ pub const GranuAllocator = struct {
         /// In bitmap, 1 is free, 0 is used or padding
         fn getBitmapSlice(self: *MemChunk) []u64 {
             const bitmap_start_ptr = @as([*]u8, @ptrCast(self)) + @sizeOf(MemChunk);
-            return @as([*]u64, @ptrCast(bitmap_start_ptr))[0..self.bitmap_size];
+            return @as([*]u64, @ptrCast(@alignCast(bitmap_start_ptr)))[0..self.bitmap_size];
         }
 
         fn calcExactElemCount(self: *MemChunk) u64 {
@@ -51,10 +51,10 @@ pub const GranuAllocator = struct {
         }
 
         fn alloc(self: *MemChunk) error{OutOfMemory}![*]u8 {
-            for (0.., self.getBitmapSlice()) |i, bitgroup| {
-                if (@popCount(bitgroup) > 0) {
-                    var free_pos = @ctz(bitgroup);
-                    bitgroup &= ~(1 << free_pos);
+            for (0.., self.getBitmapSlice()) |i, *bitgroup| {
+                if (@popCount(bitgroup.*) > 0) {
+                    var free_pos: u64 = @ctz(bitgroup.*);
+                    bitgroup.* &= ~(@as(u64, 1) << @truncate(free_pos));
 
                     free_pos += 64 * i;
                     const result_ptr: [*]u8 = @as([*]u8, @ptrCast(self)) + @sizeOf(MemChunk) + self.bitmap_size * 8;
@@ -147,6 +147,9 @@ pub const GranuAllocator = struct {
             if (accept_chunk) {
                 if (found_chunk_nn.alloc()) |result| {
                     return result;
+                } else |err| {
+                    // Kind of ugly workaround, because we can't discard error
+                    @as(error{OutOfMemory}!void, err) catch {};
                 }
             }
         }
