@@ -8,6 +8,7 @@ pub const PagingLevel = enum {
 };
 
 pub fn set_page_entry(pml4_ptr: [*]u64, phys_allocator: *buddy_allocator.BuddyAllocator, hddm_offset: u64, level: PagingLevel, virt_addr_start: u64, phys_addr_start: u64) !void {
+    _ = hddm_offset;
     // TODO: add or subtract hddm_offset whereever appropriate
 
     if (phys_addr_start & 0xfff != 0) {

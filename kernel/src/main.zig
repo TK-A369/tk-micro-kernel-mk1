@@ -6,8 +6,9 @@ const limine = @cImport({
 
 const misc = @import("misc.zig");
 const log = @import("log.zig");
-const buddy_allocator = @import("buddy_allocator.zig");
 const linear_allocator = @import("linear_allocator.zig");
+const buddy_allocator = @import("buddy_allocator.zig");
+const granu_allocator = @import("granu_allocator.zig");
 const paging = @import("paging.zig");
 
 // See LIMINE_BASE_REVISION macro in limine.h
