@@ -30,6 +30,11 @@ pub const GranuAllocator = struct {
             return space_remaining / self.elem_size;
         }
 
+        fn isInChunk(self: *const MemChunk, data: [*]u8) bool {
+            const chunk_offset: i64 = @as(i64, @intCast(@intFromPtr(data))) - @as(i64, @intCast(@intFromPtr(self)));
+            return chunk_offset > @sizeOf(MemChunk) + self.bitmap_size * 8 and chunk_offset < 0x1000 * self.pages_count;
+        }
+
         fn init(target: [*]u8, elem_size: u64, pages_count: u64) void {
             const self: *MemChunk = @ptrCast(@alignCast(target));
             self.elem_size = elem_size;
@@ -62,6 +67,19 @@ pub const GranuAllocator = struct {
                 }
             }
             return error.OutOfMemory;
+        }
+
+        /// Returns true if the memory was actually freed.
+        /// If it is in another chunk, false will be returned.
+        fn free(self: *MemChunk, data: [*]u8) bool {
+            if (!self.isInChunk(data)) {
+                return false;
+            }
+            const data_seg_offset = (data - @as([*]u8, @ptrCast(self))) - self.bitmap_size * 8;
+            const elem_num = data_seg_offset / self.elem_size;
+            // Mark as free
+            self.getBitmapSlice()[elem_num / 64] |= (@as(u64, 1) << @truncate(elem_num % 64));
+            return true;
         }
     };
 
@@ -160,5 +178,17 @@ pub const GranuAllocator = struct {
 
         const result = new_chunk.alloc() catch unreachable;
         return result;
+    }
+
+    /// Not very efficient
+    /// TODO: Actually delete blocks when the last element is deleted from them; this might need doubly-linked list
+    pub fn free(self: *GranuAllocator, data: [*]u8) void {
+        var curr_chunk = self.first_chunk;
+        while (curr_chunk) |curr_chunk_nn| {
+            if (curr_chunk_nn.free(data)) {
+                break;
+            }
+            curr_chunk = curr_chunk_nn.next_chunk;
+        }
     }
 };

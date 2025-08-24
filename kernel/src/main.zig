@@ -268,11 +268,11 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     const another_mem_1 = granu_alloc.alloc(16, .{}) catch {
         misc.hcf();
     };
-    _ = another_mem_1;
     const another_mem_2 = granu_alloc.alloc(12, .{}) catch {
         misc.hcf();
     };
     _ = another_mem_2;
+    granu_alloc.free(another_mem_1);
 
     while (true) {}
 }
