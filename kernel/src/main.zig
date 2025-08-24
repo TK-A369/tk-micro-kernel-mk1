@@ -229,9 +229,9 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     }
 
     var lin_alloc = linear_allocator.LinearAllocator{
-        .start = @ptrFromInt(largest_ram_section_addr + limine_hhdm_request.response.*.offset),
+        .start = @ptrFromInt(largest_ram_section_addr),
         .size = largest_ram_section_size,
-        .next = @ptrFromInt(largest_ram_section_addr + limine_hhdm_request.response.*.offset),
+        .next = @ptrFromInt(largest_ram_section_addr),
     };
     const buddy_mem = lin_alloc.alloc(0x1000 * (256 + 1)) catch {
         misc.hcf();
@@ -252,6 +252,13 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
         misc.hcf();
     };
     _ = some_mem_3;
+
+    var granu_alloc = granu_allocator.GranuAllocator{
+        .first_chunk = null,
+        .hhdm_offset = limine_hhdm_request.response.*.offset,
+        .buddy_alloc = &buddy_alloc,
+    };
+    granu_alloc.alloc(16, .{});
 
     while (true) {}
 }
