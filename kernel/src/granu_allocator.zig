@@ -1,8 +1,8 @@
 const buddy_allocator = @import("buddy_allocator.zig");
 
-//Somehow inspired by SLAB allocator, but it's not really it
+/// Somehow inspired by SLAB allocator, but it's not really it
 pub const GranuAllocator = struct {
-    // This struct should be page aligned
+    /// This struct should be page aligned
     const MemChunk = extern struct {
         elem_size: u64,
         pages_count: u64,
@@ -10,20 +10,20 @@ pub const GranuAllocator = struct {
         elem_count: u64,
         next_chunk: *MemChunk,
 
-        // Returns amount of u64 bitgroups needed to specify whether given slot is used or free
-        fn calc_bitmap_size(elem_size: u64, pages_count: u64) u64 {
+        /// Returns amount of u64 bitgroups needed to specify whether given slot is used or free
+        fn calcBitmapSize(elem_size: u64, pages_count: u64) u64 {
             // TODO: Store the page size in some constant
             const elem_count = pages_count * 0x1000 / elem_size;
             return (elem_count + 64 - 1) / 64;
         }
 
-        // In bitmap, 1 is free, 0 is used or padding
-        fn get_bitmap_slice(self: *MemChunk) []u64 {
+        /// In bitmap, 1 is free, 0 is used or padding
+        fn getBitmapSlice(self: *MemChunk) []u64 {
             const bitmap_start_ptr = @as([*]u8, @ptrCast(self)) + @sizeOf(MemChunk);
             return @as([*]u64, @ptrCast(bitmap_start_ptr))[0..self.bitmap_size];
         }
 
-        fn calc_exact_elem_count(self: *MemChunk) u64 {
+        fn calcExactElemCount(self: *MemChunk) u64 {
             const space_total = self.pages_count * 0x1000;
             const bitmap_space = self.bitmap_size * 4;
             const space_remaining = space_total - bitmap_space;
@@ -35,10 +35,10 @@ pub const GranuAllocator = struct {
             self.elem_size = elem_size;
             self.pages_count = pages_count;
 
-            self.bitmap_size = calc_bitmap_size(elem_size, pages_count);
-            self.elem_count = self.calc_exact_elem_count();
+            self.bitmap_size = calcBitmapSize(elem_size, pages_count);
+            self.elem_count = self.calcExactElemCount();
 
-            const bitmap = self.get_bitmap_slice();
+            const bitmap = self.getBitmapSlice();
             for (bitmap) |*bitgroup| {
                 bitgroup.* = 0xffffffff;
             }
@@ -52,13 +52,13 @@ pub const GranuAllocator = struct {
     };
 
     const AllocHints = struct {
-        // If true, always create a chunk of this specific size
-        // If false, never create a chunk of this specific size unless necessary
-        // If null, create a chunk of this specific size only if the smallest chunk for objects greater than this is more than 2 times the size of requested object
+        /// If true, always create a chunk of this specific size
+        /// If false, never create a chunk of this specific size unless necessary
+        /// If null, create a chunk of this specific size only if the smallest chunk for objects greater than this is more than 2 times the size of requested object
         create_sized_chunk: ?bool = null,
-        // How many objects (at least) should fit into a chunk, if it would be created
-        // If null, the size (in pages) will be max(1, ceil(size / page_size))
-        objects_count: ?u64,
+        /// How many objects (at least) should fit into a chunk, if it would be created
+        /// If null, default to 1
+        objects_count: ?u64 = null,
     };
 
     // This is virtual address, so it's normally accessible; because we've added hddm_offset to it
@@ -68,7 +68,7 @@ pub const GranuAllocator = struct {
     // This is expected to return physical address - and we'll add hddm_offset to access it
     buddy_alloc: *buddy_allocator.BuddyAllocator,
 
-    fn search_for_chunk_ge(self: *const GranuAllocator, size: u64) ?*MemChunk {
+    fn searchForChunkGe(self: *const GranuAllocator, size: u64) ?*MemChunk {
         var next_chunk = self.first_chunk;
         // while(true) {
         while (next_chunk) |curr_chunk| {
@@ -81,7 +81,7 @@ pub const GranuAllocator = struct {
         return null;
     }
 
-    fn insert_chunk(self: *GranuAllocator, chunk: *MemChunk) void {
+    fn insertChunk(self: *GranuAllocator, chunk: *MemChunk) void {
         var prev_chunk: ?*MemChunk = null;
         var next_chunk: ?*MemChunk = self.first_chunk;
         // Pointers with _nn suffix are nonnull
@@ -108,7 +108,24 @@ pub const GranuAllocator = struct {
         chunk.next_chunk = null;
     }
 
+    /// This DOES NOT insert the new chunk into the linked list
+    /// User is expected to call insertChunk afterwards
+    fn createChunk(self: *const GranuAllocator, elem_size: u64, pages_count: u64) error{OutOfMemory}!*MemChunk {
+        const chunk_mem = try self.buddy_alloc.alloc(pages_count * 0x1000);
+        MemChunk.init(chunk_mem, elem_size, pages_count);
+        return @ptrCast(chunk_mem);
+    }
+
     pub fn alloc(self: *GranuAllocator, size: u64, hints: AllocHints) error{OutOfMemory}![*]u8 {
-        self.search_for_chunk_ge(size);
+        const found_chunk = self.searchForChunkGe(size);
+        if (found_chunk) |found_chunk_nn| {
+            _ = found_chunk_nn;
+        } else {
+            var pages_count: u64 = undefined;
+            pages_count = (size * (hints.objects_count orelse 1) + 0x1000 - 1) / 0x1000;
+            const new_chunk = try self.createChunk(size, pages_count);
+            self.insertChunk(new_chunk);
+            // TODO: Actually allocate space in that chunk
+        }
     }
 };
