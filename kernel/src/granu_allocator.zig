@@ -8,7 +8,7 @@ pub const GranuAllocator = struct {
         pages_count: u64,
         bitmap_size: u64,
         elem_count: u64,
-        next_chunk: *MemChunk,
+        next_chunk: ?*MemChunk,
 
         /// Returns amount of u64 bitgroups needed to specify whether given slot is used or free
         fn calcBitmapSize(elem_size: u64, pages_count: u64) u64 {
@@ -31,7 +31,7 @@ pub const GranuAllocator = struct {
         }
 
         fn init(target: [*]u8, elem_size: u64, pages_count: u64) void {
-            const self: *MemChunk = @ptrCast(target);
+            const self: *MemChunk = @ptrCast(@alignCast(target));
             self.elem_size = elem_size;
             self.pages_count = pages_count;
 
@@ -47,7 +47,7 @@ pub const GranuAllocator = struct {
                 last_bitgroup_used = 64;
             }
             const last_bitgroup_padding = 64 - last_bitgroup_used;
-            bitmap[bitmap.len - 1] >>= last_bitgroup_padding;
+            bitmap[bitmap.len - 1] >>= @truncate(last_bitgroup_padding);
         }
 
         fn alloc(self: *MemChunk) error{OutOfMemory}![*]u8 {
@@ -127,7 +127,7 @@ pub const GranuAllocator = struct {
     fn createChunk(self: *const GranuAllocator, elem_size: u64, pages_count: u64) error{OutOfMemory}!*MemChunk {
         const chunk_mem = try self.buddy_alloc.alloc(pages_count * 0x1000);
         MemChunk.init(chunk_mem, elem_size, pages_count);
-        return @ptrCast(chunk_mem);
+        return @ptrCast(@alignCast(chunk_mem));
     }
 
     pub fn alloc(self: *GranuAllocator, size: u64, hints: AllocHints) error{OutOfMemory}![*]u8 {
@@ -158,7 +158,7 @@ pub const GranuAllocator = struct {
         const new_chunk = try self.createChunk(size, pages_count);
         self.insertChunk(new_chunk);
 
-        const result = new_chunk.alloc() orelse unreachable;
+        const result = new_chunk.alloc() catch unreachable;
         return result;
     }
 };
