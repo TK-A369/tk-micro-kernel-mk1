@@ -31,8 +31,14 @@ pub const GranuAllocator = struct {
         }
 
         fn isInChunk(self: *const MemChunk, data: [*]u8) bool {
-            const chunk_offset: i64 = @as(i64, @intCast(@intFromPtr(data))) - @as(i64, @intCast(@intFromPtr(self)));
-            return chunk_offset > @sizeOf(MemChunk) + self.bitmap_size * 8 and chunk_offset < 0x1000 * self.pages_count;
+            // Note that in our addresses, the MSB is probably 0xff (because we're higher-half kernel), so we can't represent those as i64 - only u64
+            const data_ptr = @as(u64, @intCast(@intFromPtr(data)));
+            const self_ptr = @as(u64, @intCast(@intFromPtr(self)));
+            if (data_ptr < self_ptr) {
+                return false;
+            }
+            const chunk_offset: u64 = data_ptr - self_ptr;
+            return chunk_offset >= @sizeOf(MemChunk) + self.bitmap_size * 8 and chunk_offset < 0x1000 * self.pages_count;
         }
 
         fn init(target: [*]u8, elem_size: u64, pages_count: u64) void {
