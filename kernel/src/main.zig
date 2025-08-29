@@ -10,6 +10,7 @@ const linear_allocator = @import("linear_allocator.zig");
 const buddy_allocator = @import("buddy_allocator.zig");
 const granu_allocator = @import("granu_allocator.zig");
 const paging = @import("paging.zig");
+const interrupts = @import("interrupts.zig");
 
 // See LIMINE_BASE_REVISION macro in limine.h
 export var limine_base_revision linksection(".limine_requests") = [3]u64{
@@ -171,6 +172,9 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
         : [gdtr_ptr] "{rax}" (&gdtr),
         : .{});
 
+    // Load IDT
+    interrupts.setup_interrupts();
+
     if (framebuffer_request.response == null) {
         misc.hcf();
     }
@@ -273,6 +277,8 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     };
     _ = another_mem_2;
     granu_alloc.free(another_mem_1);
+
+    asm volatile ("int $0x80" ::: .{});
 
     while (true) {}
 }
