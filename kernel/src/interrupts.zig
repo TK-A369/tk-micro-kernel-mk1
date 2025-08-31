@@ -28,7 +28,7 @@ fn attach_isr(
     idt[int_num] = entry;
 }
 
-const Idtr = extern struct {
+const Idtr = packed struct {
     size: u16,
     addr: u64,
 };
@@ -40,7 +40,10 @@ pub fn setup_interrupts() void {
         .size = 256 - 1,
         .addr = @intFromPtr(&idt),
     };
-    asm volatile ("lidt (%[idtr_ptr])"
+    // Load the IDT and enable interrupts
+    asm volatile (
+        \\lidt (%[idtr_ptr])
+        \\sti
         :
         : [idtr_ptr] "{rax}" (&idtr),
         : .{});
