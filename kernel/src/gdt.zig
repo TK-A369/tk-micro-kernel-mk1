@@ -9,9 +9,9 @@ const Gdtr = packed struct {
 
 export var gdt = [7]u64{
     0x0000000000000000, //Null descriptor
-    (0xf << 48) | (0xffff << 0) | (0x9a << 40) | (0xc << 52), //Kernel mode code seg
+    (0xf << 48) | (0xffff << 0) | (0x9a << 40) | (0xa << 52), //Kernel mode code seg
     (0xf << 48) | (0xffff << 0) | (0x92 << 40) | (0xc << 52), //Kernel mode data seg
-    (0xf << 48) | (0xffff << 0) | (0xfa << 40) | (0xc << 52), //User mode code seg
+    (0xf << 48) | (0xffff << 0) | (0xfa << 40) | (0xa << 52), //User mode code seg
     (0xf << 48) | (0xffff << 0) | (0xf2 << 40) | (0xc << 52), //User mode data seg
     0, //Task State Segment (lower half) - will be set at runtime
     0, //Task State Segment (higher half) - will be set at runtime
@@ -32,17 +32,20 @@ pub fn setup_gdt() void {
 
     // Reload the segment selectors
     asm volatile (
-        \\push 0x08
+        \\pushq $0x08
         \\leaq .reload_CS(%rip), %rax
-        \\push %rax
+        \\pushq %rax
+        \\# pushw $0x00 # Some padding, I guess?
+        \\# pushw $0x00
         \\lretq
+        \\# lretq $0x00
         \\.reload_CS:
-        \\mov 0x10, %ax
-        \\mov %ax, %ds
-        \\mov %ax, %es
-        \\mov %ax, %fs
-        \\mov %ax, %gs
-        \\mov %ax, %ss
+        \\movw $0x10, %ax
+        \\movw %ax, %ds
+        \\movw %ax, %es
+        \\movw %ax, %fs
+        \\movw %ax, %gs
+        \\movw %ax, %ss
         \\ret
         ::: .{
             .rax = true,

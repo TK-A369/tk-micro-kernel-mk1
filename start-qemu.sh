@@ -13,6 +13,7 @@ while [ "$#" -ge 1 ]; do
 		echo " -ng - without graphics"
 		echo " -gdb - start GDB server"
 		echo " -kvm - use KVM acceleration"
+		echo " -int - print interrupts debugging info"
 		exit 0
 	elif [ "$1" = "-ng" ]; then
 		QEMU_ARGS="${QEMU_ARGS} -nographic"
@@ -20,6 +21,8 @@ while [ "$#" -ge 1 ]; do
 		QEMU_ARGS="${QEMU_ARGS} -s -S"
 	elif [ "$1" = "-kvm" ]; then
 		QEMU_ARGS="${QEMU_ARGS} -accel kvm"
+	elif [ "$1" = "-int" ]; then
+		QEMU_ARGS="${QEMU_ARGS} -d int"
 	else
 		echo "Unrecognized argument \"$1\""
 		echo "Run \"$EXEC_NAME -h\" to get help"
