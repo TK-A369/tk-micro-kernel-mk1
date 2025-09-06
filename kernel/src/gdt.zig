@@ -35,10 +35,7 @@ pub fn setup_gdt() void {
         \\pushq $0x08
         \\leaq .reload_CS(%rip), %rax
         \\pushq %rax
-        \\# pushw $0x00 # Some padding, I guess?
-        \\# pushw $0x00
         \\lretq
-        \\# lretq $0x00
         \\.reload_CS:
         \\movw $0x10, %ax
         \\movw %ax, %ds
@@ -46,7 +43,6 @@ pub fn setup_gdt() void {
         \\movw %ax, %fs
         \\movw %ax, %gs
         \\movw %ax, %ss
-        \\ret
         ::: .{
             .rax = true,
         });
