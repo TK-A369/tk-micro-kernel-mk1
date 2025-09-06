@@ -24,6 +24,7 @@ fn attach_isr(
     // For now, IST (interrupt stack) is always zero - stack won't be switched
     entry |= @as(u128, @intFromEnum(gate_type)) << 40;
     entry |= @as(u128, dpl) << 45;
+    entry |= @as(u128, 1) << 47; //Present bit
     entry |= @as(u128, ((isr_addr >> 16) & 0xffffffffffff)) << 48;
     idt[int_num] = entry;
 }
@@ -34,10 +35,10 @@ const Idtr = packed struct {
 };
 
 pub fn setup_interrupts() void {
-    attach_isr(0x80, isr_80h, 1, .Interrupt64, 3);
+    attach_isr(0x80, isr_80h, 0x8, .Interrupt64, 3);
 
     const idtr = Idtr{
-        .size = 256 - 1,
+        .size = @sizeOf(@TypeOf(idt)) - 1,
         .addr = @intFromPtr(&idt),
     };
     // Load the IDT and enable interrupts
