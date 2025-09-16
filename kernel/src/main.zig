@@ -253,7 +253,10 @@ pub export fn kmain() linksection(".text") callconv(.c) void {
     _ = another_mem_2;
     granu_alloc.free(another_mem_1);
 
-    asm volatile ("int $0x80" ::: .{});
+    asm volatile (
+        \\mov $0x0123456789abcdef, %%rax
+        \\int $0x80
+        ::: .{ .rax = true });
 
     while (true) {}
 }
