@@ -12,7 +12,7 @@ const IdtGateType = enum(u4) {
 
 fn attach_isr(
     int_num: u8,
-    isr: *const fn () callconv(.{ .x86_64_interrupt = .{ .incoming_stack_alignment = null } }) void,
+    isr: *const anyopaque,
     seg_sel: u16,
     gate_type: IdtGateType,
     dpl: u2,
@@ -35,6 +35,8 @@ const Idtr = packed struct {
 };
 
 pub fn setup_interrupts() void {
+    attach_isr(0x0d, isr_general_protection, 0x8, .Trap64, 0);
+    attach_isr(0x0e, isr_page_fault, 0x8, .Trap64, 0);
     attach_isr(0x80, isr_80h, 0x8, .Interrupt64, 3);
 
     const idtr = Idtr{
@@ -50,8 +52,42 @@ pub fn setup_interrupts() void {
         : .{});
 }
 
-fn isr_80h() callconv(.{ .x86_64_interrupt = .{ .incoming_stack_alignment = null } }) void {
-    log.log_writer.print("Interrupt 0x80 is being handled!\n", .{}) catch {
+fn isr_general_protection() callconv(.{ .x86_64_interrupt = .{ .incoming_stack_alignment = null } }) void {
+    log.log_writer.print("General protection fault!\n", .{}) catch {};
+    misc.hcf();
+}
+
+fn isr_page_fault() callconv(.{ .x86_64_interrupt = .{ .incoming_stack_alignment = null } }) void {
+    log.log_writer.print("Page fault!\n", .{}) catch {};
+    misc.hcf();
+}
+
+// Here, we need to directly read the register, so I don't think we can set Zig's callconv to x86_64_interrupt
+export fn isr_80h_inner(int_desc: u64) callconv(.{ .x86_64_sysv = .{ .incoming_stack_alignment = null } }) void {
+    log.log_writer.print("Interrupt 0x80 is being handled! Descriptor: *0x{x:0>16}\n", .{int_desc}) catch {
         misc.hcf();
     };
+}
+
+fn isr_80h() callconv(.naked) void {
+    // Read rax register content
+    asm volatile (
+        \\pushq %rax
+        \\pushq %rbx
+        \\pushq %rcx
+        \\pushq %rdx
+        \\pushq %rsi
+        \\pushq %rdi
+        \\pushq %rbp
+        \\movq %%rax, %%rdi
+        \\call isr_80h_inner
+        \\popq %rbp
+        \\popq %rdi
+        \\popq %rsi
+        \\popq %rdx
+        \\popq %rcx
+        \\popq %rbx
+        \\popq %rax
+        \\iretq
+        ::: .{ .rax = true, .rdi = true });
 }
