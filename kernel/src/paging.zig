@@ -1,5 +1,6 @@
 const buddy_allocator = @import("buddy_allocator.zig");
 const granu_allocator = @import("granu_allocator.zig");
+const avl_tree = @import("avl_tree.zig");
 
 // Every page entry will have a pointer to MemRegion 4096B (one page) after itself
 
@@ -10,7 +11,7 @@ pub const PagingLevel = enum {
     pt, //page table
 };
 
-pub fn set_page_entry(
+pub fn setPageEntry(
     pml4_ptr: [*]u64,
     phys_allocator: *buddy_allocator.BuddyAllocator,
     reg_desc_allocator: *granu_allocator.GranuAllocator,
@@ -20,6 +21,8 @@ pub fn set_page_entry(
     virt_addr_start: u64,
     phys_addr_start: u64,
 ) !void {
+    _ = reg_desc_allocator;
+    _ = shared;
     //TODO: Either allow remapping, or force to unmap before mapping again
 
     if (phys_addr_start & 0xfff != 0) {
