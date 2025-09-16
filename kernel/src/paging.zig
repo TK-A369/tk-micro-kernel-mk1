@@ -78,3 +78,12 @@ pub fn set_page_entry(pml4_ptr: [*]u64, phys_allocator: *buddy_allocator.BuddyAl
         pt_ptr[pt_idx] = phys_addr_start | 0x87; // PS, U/A, R/W and P are set
     }
 }
+
+pub const MemRegion = union(enum) {
+    mem_static: void,
+    mem_shared: struct {
+        phys_addr: u64,
+        // As for now, shared memory region must have size corresponding to one page of given level
+        level: PagingLevel,
+    },
+};

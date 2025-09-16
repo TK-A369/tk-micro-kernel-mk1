@@ -52,11 +52,13 @@ pub fn setup_interrupts() void {
         : .{});
 }
 
+// TODO: read error code
 fn isr_general_protection() callconv(.{ .x86_64_interrupt = .{ .incoming_stack_alignment = null } }) void {
     log.log_writer.print("General protection fault!\n", .{}) catch {};
     misc.hcf();
 }
 
+// TODO: read error code
 fn isr_page_fault() callconv(.{ .x86_64_interrupt = .{ .incoming_stack_alignment = null } }) void {
     log.log_writer.print("Page fault!\n", .{}) catch {};
     misc.hcf();
