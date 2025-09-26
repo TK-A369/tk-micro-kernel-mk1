@@ -18,8 +18,27 @@ pub fn AvlTree(comptime T: type) type {
             parent: ?*Node,
         };
 
+        fn update_height(node: ?*Node) void {
+            if (node) |node_nn| {
+                const left_height: u64 = left_height_blk: {
+                    if (node_nn.left) |nl| {
+                        break :left_height_blk nl.height;
+                    } else {
+                        break :left_height_blk 0;
+                    }
+                };
+                const right_height: u64 = right_height_blk: {
+                    if (node_nn.right) |nr| {
+                        break :right_height_blk nr.height;
+                    } else {
+                        break :right_height_blk 0;
+                    }
+                };
+                node_nn.height = @max(left_height, right_height) + 1;
+            }
+        }
+
         pub fn insert(self: *AvlTree, value: *T) void {
-            // TODO
             var curr_node_ptr: *?*Node = &self.root;
             var parent_node: ?*Node = null;
             while (curr_node_ptr.*) |curr_node_nn| {
@@ -42,15 +61,19 @@ pub fn AvlTree(comptime T: type) type {
             // Perform balancing
             var backtracking_curr_node = curr_node_ptr.*;
             while (backtracking_curr_node) |backtracking_curr_node_nn| {
-                const left_height: u64 = if (backtracking_curr_node_nn.left) |bcnl| {
-                    break bcnl.height;
-                } else {
-                    break 0;
+                const left_height: u64 = left_height_blk: {
+                    if (backtracking_curr_node_nn.left) |bcnl| {
+                        break :left_height_blk bcnl.height;
+                    } else {
+                        break :left_height_blk 0;
+                    }
                 };
-                const right_height: u64 = if (backtracking_curr_node_nn.right) |bcnr| {
-                    break bcnr.height;
-                } else {
-                    break 0;
+                const right_height: u64 = right_height_blk: {
+                    if (backtracking_curr_node_nn.right) |bcnr| {
+                        break :right_height_blk bcnr.height;
+                    } else {
+                        break :right_height_blk 0;
+                    }
                 };
                 const bf: i64 = right_height - left_height;
                 // If necessary, perform rotation
@@ -86,6 +109,7 @@ pub fn AvlTree(comptime T: type) type {
                         if (node_d) |node_d_nn| {
                             node_d_nn.parent = bcnr;
                         }
+                        update_height(bcnr);
                     } else {
                         // This shouldn't ever happen
                         misc.hcf();
@@ -122,15 +146,13 @@ pub fn AvlTree(comptime T: type) type {
                         if (node_c) |node_c_nn| {
                             node_c_nn.parent = bcnl;
                         }
+                        update_height(bcnl);
                     } else {
                         // This shouldn't ever happen
                         misc.hcf();
                     }
                 }
-                backtracking_curr_node_nn.height = 1 + @max(
-                    left_height,
-                    right_height,
-                );
+                update_height(backtracking_curr_node_nn);
                 backtracking_curr_node = backtracking_curr_node_nn.parent;
             }
         }
