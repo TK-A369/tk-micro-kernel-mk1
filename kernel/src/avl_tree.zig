@@ -2,7 +2,7 @@ const std = @import("std");
 
 const misc = @import("misc.zig");
 
-/// This isn't the optimal implementation, because we perform an allcoation for every node, and they might therefore be spread out in the memory
+/// This isn't the optimal implementation, because we perform an allocation for every node, and they might therefore be spread out in the memory
 pub fn AvlTree(comptime T: type) type {
     return struct {
         root: ?*Node,
@@ -17,6 +17,16 @@ pub fn AvlTree(comptime T: type) type {
             right: ?*Node,
             parent: ?*Node,
         };
+
+        const This = @This();
+
+        pub fn init(allocator: std.mem.Allocator, cmp_fn: *const fn (*T, *T) bool) This {
+            return .{
+                .root = null,
+                .cmp_fn = cmp_fn,
+                .allocator = allocator,
+            };
+        }
 
         fn update_height(node: ?*Node) void {
             if (node) |node_nn| {
@@ -38,7 +48,7 @@ pub fn AvlTree(comptime T: type) type {
             }
         }
 
-        pub fn insert(self: *AvlTree, value: *T) void {
+        pub fn insert(self: *This, value: *T) void {
             var curr_node_ptr: *?*Node = &self.root;
             var parent_node: ?*Node = null;
             while (curr_node_ptr.*) |curr_node_nn| {
@@ -157,7 +167,7 @@ pub fn AvlTree(comptime T: type) type {
             }
         }
 
-        pub fn search(self: *AvlTree, value: *T) ?*Node {
+        pub fn search(self: *This, value: *T) ?*Node {
             var curr_node: ?*Node = self.root;
             while (curr_node) |curr_node_nn| {
                 if (self.cmp_fn(curr_node_nn.value, value)) {
@@ -169,6 +179,117 @@ pub fn AvlTree(comptime T: type) type {
                 }
             }
             return null;
+        }
+
+        fn shift_nodes(self: *This, node_a: ?*Node, node_b: ?*Node) void {
+            if (node_a) |node_a_nn| {
+                if (node_a_nn.parent) |parent_nn| {
+                    if (node_a_nn == parent_nn.left) {
+                        parent_nn.left = node_b;
+                    } else if (node_a_nn == parent_nn.right) {
+                        parent_nn.right = node_b;
+                    }
+                } else {
+                    self.root = node_b;
+                }
+                if (node_b) |node_b_nn| {
+                    node_b_nn.parent = node_a_nn.parent;
+                }
+            } else {
+                if (node_b) |node_b_nn| {
+                    node_b_nn.parent = null;
+                    self.root = node_b_nn;
+                }
+            }
+        }
+
+        pub fn delete(self: *This, value: *T) void {
+            var curr_node: ?*Node = self.root;
+            while (curr_node) |curr_node_nn| {
+                if (self.cmp_fn(curr_node_nn.value, value)) {
+                    curr_node = curr_node_nn.right;
+                } else if (self.cmp_fn(value, curr_node_nn.value)) {
+                    curr_node = curr_node_nn.left;
+                } else {
+                    const left_height: u64 = left_height_blk: {
+                        if (curr_node_nn.left) |cnl| {
+                            break :left_height_blk cnl.height;
+                        } else {
+                            break :left_height_blk 0;
+                        }
+                    };
+                    const right_height: u64 = right_height_blk: {
+                        if (curr_node_nn.right) |cnr| {
+                            break :right_height_blk cnr.height;
+                        } else {
+                            break :right_height_blk 0;
+                        }
+                    };
+
+                    // 0 - there are no children to pull up
+                    // -1 - pull up left
+                    // 1 - pull up right
+                    var pull_up_which: i8 = 0;
+                    if (left_height > right_height) {
+                        if (curr_node_nn.right) {
+                            pull_up_which = 1;
+                        } else if (curr_node_nn.left) {
+                            pull_up_which = -1;
+                        }
+                    } else {
+                        if (curr_node_nn.left) {
+                            pull_up_which = -1;
+                        } else if (curr_node_nn.right) {
+                            pull_up_which = 1;
+                        }
+                    }
+
+                    // 0 - this is a root node
+                    // -1 - this node is left child
+                    // 1 - this node is right child
+                    const parent_side: i8 = parent_side_blk: {
+                        if (curr_node_nn.parent) |parent_nn| {
+                            if (parent_nn.left == curr_node_nn) {
+                                break :parent_side_blk -1;
+                            } else if (parent_nn.right == curr_node_nn) {
+                                break :parent_side_blk 1;
+                            }
+                        }
+                        break :parent_side_blk 0;
+                    };
+                    switch (pull_up_which) {
+                        -1 => {
+                            switch (parent_side) {
+                                -1 => {
+                                    curr_node_nn.parent.left = curr_node_nn.left.?;
+                                },
+                                0 => {
+                                    self.root = curr_node_nn.left.?;
+                                },
+                                1 => {
+                                    curr_node_nn.parent.right = curr_node_nn.left.?;
+                                },
+                            }
+                            // curr_node_nn.
+                        },
+                        0 => {
+                            switch (parent_side) {
+                                -1 => {
+                                    curr_node.parent.left = null;
+                                },
+                                0 => {
+                                    self.root = null;
+                                },
+                                1 => {
+                                    curr_node.parent.right = null;
+                                },
+                            }
+                            self.allocator.destroy(curr_node);
+                        },
+                        1 => {},
+                    }
+                }
+            }
         }
     };
 }
