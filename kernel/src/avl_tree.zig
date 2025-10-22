@@ -181,25 +181,116 @@ pub fn AvlTree(comptime T: type) type {
             return null;
         }
 
-        fn shift_nodes(self: *This, node_a: ?*Node, node_b: ?*Node) void {
-            if (node_a) |node_a_nn| {
-                if (node_a_nn.parent) |parent_nn| {
-                    if (node_a_nn == parent_nn.left) {
-                        parent_nn.left = node_b;
-                    } else if (node_a_nn == parent_nn.right) {
-                        parent_nn.right = node_b;
+        // From:
+        //     A
+        //  B     e
+        // c d
+        // To:
+        //     B
+        //  c     A
+        //       d e
+        // ===OR===
+        // From:
+        //     A
+        //  e     B
+        //       c d
+        // To:
+        //     B
+        //  A     d
+        // e c
+        // fn shift_nodes(self: *This, node_a: ?*Node, node_b: ?*Node) void {
+        //     if (node_a) |node_a_nn| {
+        //         if (node_a_nn.parent) |parent_nn| {
+        //             if (node_a_nn == parent_nn.left) {
+        //                 parent_nn.left = node_b;
+        //             } else if (node_a_nn == parent_nn.right) {
+        //                 parent_nn.right = node_b;
+        //             }
+        //         } else {
+        //             self.root = node_b;
+        //         }
+        //         if (node_b) |node_b_nn| {
+        //             node_b_nn.parent = node_a_nn.parent;
+        //         }
+        //         if (node_a.left == node_b) {}
+        //     } else {
+        //         if (node_b) |node_b_nn| {
+        //             node_b_nn.parent = null;
+        //             self.root = node_b_nn;
+        //         }
+        //     }
+        // }
+
+        // From:
+        //     A
+        //  e     B
+        //       c d
+        // To:
+        //     B
+        //  A     d
+        // e c
+        fn rotate_left(self: *This, node_a: *Node) !void {
+            const node_b = node_a.right;
+            if (node_b) |node_b_nn| {
+                const node_c = node_b_nn.left;
+                // const node_d = node_b_nn.right;
+                // const node_e = node_a.left;
+                const par_a = node_a.parent;
+
+                node_b_nn.left = node_a;
+                node_a.parent = node_b_nn;
+                if (par_a) |par_a_nn| {
+                    if (par_a_nn.left == node_a) {
+                        par_a_nn.left = node_b_nn;
+                    } else {
+                        par_a_nn.right == node_b_nn;
                     }
                 } else {
-                    self.root = node_b;
-                }
-                if (node_b) |node_b_nn| {
-                    node_b_nn.parent = node_a_nn.parent;
-                }
-            } else {
-                if (node_b) |node_b_nn| {
-                    node_b_nn.parent = null;
                     self.root = node_b_nn;
                 }
+
+                node_a.right = node_c;
+                if (node_c) |node_c_nn| {
+                    node_c_nn.parent = node_a;
+                }
+            } else {
+                return error.IllegalRotation;
+            }
+        }
+
+        //     A
+        //  B     e
+        // c d
+        // To:
+        //     B
+        //  c     A
+        //       d e
+        fn rotate_right(self: *This, node_a: *Node) !void {
+            const node_b = node_a.left;
+            if (node_b) |node_b_nn| {
+                // const node_c = node_b_nn.left;
+                const node_d = node_b_nn.right;
+                // const node_e = node_a.right;
+                const par_a = node_a.parent;
+
+                node_b_nn.right = node_a;
+                node_a.parent = node_b;
+                if (par_a) |par_a_nn| {
+                    if (par_a_nn.left == node_a) {
+                        par_a_nn.left = node_b_nn;
+                    } else {
+                        par_a_nn.right = node_b_nn;
+                    }
+                } else {
+                    self.root = node_b_nn;
+                }
+
+                node_a.left = node_d;
+                if (node_d) |node_d_nn| {
+                    node_d_nn.parent = node_a;
+                }
+            } else {
+                return error.IllegalRotation;
             }
         }
 
