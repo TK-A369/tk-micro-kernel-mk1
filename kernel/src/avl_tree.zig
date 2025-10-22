@@ -44,6 +44,14 @@ pub fn AvlTree(comptime T: type) type {
             }
         }
 
+        fn getMax(node: *Node) *T {
+            var curr_node: *Node = node;
+            while (curr_node.right) |right_nn| {
+                curr_node = right_nn;
+            }
+            return curr_node;
+        }
+
         // From:
         //     A
         //  e     B
@@ -179,16 +187,59 @@ pub fn AvlTree(comptime T: type) type {
             return null;
         }
 
-        pub fn delete(self: *This, value: *T, curr_node: ?*Node) !?*Node {
+        pub fn delete(self: *This, value: *T, curr_node: ?*Node, parent_node: ?*Node, preserve_value: bool) !?*Node {
             if (curr_node) |curr_node_nn| {
                 if (self.cmp_fn(value, curr_node_nn.data)) {
-                    curr_node_nn.left = self.delete(value, curr_node_nn.left);
+                    curr_node_nn.left = self.delete(value, curr_node_nn.left, curr_node_nn, false);
                 } else if (self.cmp_fn(curr_node_nn.data, value)) {
-                    curr_node_nn.right = self.devele(value, curr_node_nn.right);
+                    curr_node_nn.right = self.devele(value, curr_node_nn.right, curr_node_nn, false);
                 } else {
-                    // TODO
-                    if (curr_node_nn.left) |left_nn| {} else {
-                        if (curr_node_nn.right) |right_nn| {} else {
+                    if (curr_node_nn.left) |left_nn| {
+                        if (curr_node_nn.right) |right_nn| {
+                            // There are two children
+                            _ = right_nn;
+                            const left_max_val = getMax(left_nn);
+                            curr_node_nn.value = left_max_val;
+                            self.delete(left_nn, left_max_val, curr_node_nn, true);
+
+                            // TODO: balance
+                        } else {
+                            // There's only left child
+                            if (parent_node) |parent_node_nn| {
+                                if (parent_node_nn.left == curr_node_nn) {
+                                    parent_node_nn.left = left_nn;
+                                } else {
+                                    parent_node_nn.right = left_nn;
+                                }
+                            } else {
+                                self.root = left_nn;
+                            }
+                            if (!preserve_value) {
+                                self.allocator.destroy(curr_node_nn.value);
+                            }
+                            self.allocator.destroy(curr_node_nn);
+                        }
+                    } else {
+                        if (curr_node_nn.right) |right_nn| {
+                            // There's only right child
+                            if (parent_node) |parent_node_nn| {
+                                if (parent_node_nn.left == curr_node_nn) {
+                                    parent_node_nn.left = right_nn;
+                                } else {
+                                    parent_node_nn.right = right_nn;
+                                }
+                            } else {
+                                self.root = right_nn;
+                            }
+                            if (!preserve_value) {
+                                self.allocator.destroy(curr_node_nn.value);
+                            }
+                            self.allocator.destroy(curr_node_nn);
+                        } else {
+                            // That node was a leaf - it has no children
+                            if (!preserve_value) {
+                                self.allocator.destroy(curr_node_nn.value);
+                            }
                             self.allocator.destroy(curr_node_nn);
                         }
                     }
