@@ -28,142 +28,61 @@ pub fn AvlTree(comptime T: type) type {
             };
         }
 
-        fn update_height(node: ?*Node) void {
+        fn getHeight(node: ?*Node) u64 {
             if (node) |node_nn| {
-                const left_height: u64 = left_height_blk: {
-                    if (node_nn.left) |nl| {
-                        break :left_height_blk nl.height;
-                    } else {
-                        break :left_height_blk 0;
-                    }
-                };
-                const right_height: u64 = right_height_blk: {
-                    if (node_nn.right) |nr| {
-                        break :right_height_blk nr.height;
-                    } else {
-                        break :right_height_blk 0;
-                    }
-                };
+                return node_nn.height;
+            } else {
+                return 0;
+            }
+        }
+
+        fn updateHeight(node: ?*Node) void {
+            if (node) |node_nn| {
+                const left_height = getHeight(node_nn.left);
+                const right_height = getHeight(node_nn.right);
                 node_nn.height = @max(left_height, right_height) + 1;
             }
         }
 
-        pub fn insert(self: *This, value: *T) void {
-            var curr_node_ptr: *?*Node = &self.root;
-            var parent_node: ?*Node = null;
-            while (curr_node_ptr.*) |curr_node_nn| {
-                parent_node = curr_node_nn;
+        pub fn insert(self: *This, value: *T, curr_node: ?*Node, parent_node: ?*Node) *Node {
+            if (curr_node) |curr_node_nn| {
                 if (self.cmp_fn(value, curr_node_nn.value)) {
-                    curr_node_ptr = &curr_node_nn.left;
+                    curr_node_nn.left = self.insert(value, curr_node_nn.left, curr_node_nn);
                 } else {
-                    curr_node_ptr = &curr_node_nn.right;
+                    curr_node_nn.right = self.insert(value, curr_node_nn.rigth, curr_node_nn);
                 }
-            }
-            curr_node_ptr.* = try self.allocator.create(Node);
-            curr_node_ptr.*.?.* = .{
-                .value = value,
-                .height = 1,
-                .left = null,
-                .right = null,
-                .parent = parent_node,
-            };
+                updateHeight(curr_node_nn);
 
-            // Perform balancing
-            var backtracking_curr_node = curr_node_ptr.*;
-            while (backtracking_curr_node) |backtracking_curr_node_nn| {
-                const left_height: u64 = left_height_blk: {
-                    if (backtracking_curr_node_nn.left) |bcnl| {
-                        break :left_height_blk bcnl.height;
-                    } else {
-                        break :left_height_blk 0;
-                    }
-                };
-                const right_height: u64 = right_height_blk: {
-                    if (backtracking_curr_node_nn.right) |bcnr| {
-                        break :right_height_blk bcnr.height;
-                    } else {
-                        break :right_height_blk 0;
-                    }
-                };
-                const bf: i64 = right_height - left_height;
-                // If necessary, perform rotation
+                const bf = @as(i64, getHeight(curr_node_nn.left)) - @as(i64, getHeight(curr_node_nn.right));
                 if (bf >= 2) {
-                    if (backtracking_curr_node_nn.right) |bcnr| {
-                        //     A
-                        //  B     C
-                        //       D E
-                        // ==========>
-                        //     C
-                        //  A     E
-                        // B D
-                        const node_a_val = backtracking_curr_node_nn.value;
-                        const node_c_val = bcnr.value;
-                        const node_b = bcnr.backtracking_curr_node_nn.left;
-                        const node_d = bcnr.left;
-                        const node_e = bcnr.right;
-                        // Node C
-                        backtracking_curr_node_nn.value = node_c_val;
-                        backtracking_curr_node_nn.left = bcnr;
-                        bcnr.parent = backtracking_curr_node_nn;
-                        backtracking_curr_node_nn.right = node_e;
-                        if (node_e) |node_e_nn| {
-                            node_e_nn.parent = backtracking_curr_node_nn;
-                        }
-                        // Node A
-                        bcnr.value = node_a_val;
-                        bcnr.left = node_b;
-                        if (node_b) |node_b_nn| {
-                            node_b_nn.parent = bcnr;
-                        }
-                        bcnr.right = node_d;
-                        if (node_d) |node_d_nn| {
-                            node_d_nn.parent = bcnr;
-                        }
-                        update_height(bcnr);
+                    // Left-heavy
+                    if (self.cmp_fn(curr_node_nn.left.?, value)) {
+                        self.rotateLeft(curr_node_nn.left.?);
+                        return self.rotateRight(curr_node_nn);
                     } else {
-                        // This shouldn't ever happen
-                        misc.hcf();
+                        return rotateRight(curr_node_nn);
                     }
                 } else if (bf <= -2) {
-                    if (backtracking_curr_node_nn.left) |bcnl| {
-                        //     A
-                        //  B     C
-                        // D E
-                        // ==========>
-                        //     B
-                        //  D     A
-                        //       E C
-                        const node_a_val = backtracking_curr_node_nn.value;
-                        const node_b_val = bcnl.value;
-                        const node_c = backtracking_curr_node_nn.right;
-                        const node_d = bcnl.left;
-                        const node_e = bcnl.right;
-                        // Node B
-                        backtracking_curr_node_nn.value = node_b_val;
-                        backtracking_curr_node_nn.left = node_d;
-                        if (node_d) |node_d_nn| {
-                            node_d_nn.parent = backtracking_curr_node_nn;
-                        }
-                        backtracking_curr_node_nn.right = bcnl;
-                        bcnl.parent = backtracking_curr_node_nn;
-                        // Node A
-                        bcnl.value = node_a_val;
-                        bcnl.left = node_e;
-                        if (node_e) |node_e_nn| {
-                            node_e_nn.parent = bcnl;
-                        }
-                        bcnl.right = node_c;
-                        if (node_c) |node_c_nn| {
-                            node_c_nn.parent = bcnl;
-                        }
-                        update_height(bcnl);
+                    // Right-heavy
+                    if (self.cmp_fn(value, curr_node.right.?.data)) {
+                        rotateRight(curr_node_nn.right);
+                        return rotateLeft(curr_node_nn);
                     } else {
-                        // This shouldn't ever happen
-                        misc.hcf();
+                        return rotateLeft(curr_node_nn);
                     }
+                } else {
+                    return curr_node_nn;
                 }
-                update_height(backtracking_curr_node_nn);
-                backtracking_curr_node = backtracking_curr_node_nn.parent;
+            } else {
+                curr_node = self.allocator.create(Node);
+                curr_node.?.* = .{
+                    .value = value,
+                    .height = 1,
+                    .left = null,
+                    .right = null,
+                    .parent = parent_node,
+                };
+                return curr_node.?;
             }
         }
 
@@ -183,53 +102,13 @@ pub fn AvlTree(comptime T: type) type {
 
         // From:
         //     A
-        //  B     e
-        // c d
-        // To:
-        //     B
-        //  c     A
-        //       d e
-        // ===OR===
-        // From:
-        //     A
         //  e     B
         //       c d
         // To:
         //     B
         //  A     d
         // e c
-        // fn shift_nodes(self: *This, node_a: ?*Node, node_b: ?*Node) void {
-        //     if (node_a) |node_a_nn| {
-        //         if (node_a_nn.parent) |parent_nn| {
-        //             if (node_a_nn == parent_nn.left) {
-        //                 parent_nn.left = node_b;
-        //             } else if (node_a_nn == parent_nn.right) {
-        //                 parent_nn.right = node_b;
-        //             }
-        //         } else {
-        //             self.root = node_b;
-        //         }
-        //         if (node_b) |node_b_nn| {
-        //             node_b_nn.parent = node_a_nn.parent;
-        //         }
-        //         if (node_a.left == node_b) {}
-        //     } else {
-        //         if (node_b) |node_b_nn| {
-        //             node_b_nn.parent = null;
-        //             self.root = node_b_nn;
-        //         }
-        //     }
-        // }
-
-        // From:
-        //     A
-        //  e     B
-        //       c d
-        // To:
-        //     B
-        //  A     d
-        // e c
-        fn rotate_left(self: *This, node_a: *Node) !void {
+        fn rotateLeft(self: *This, node_a: *Node) !*Node {
             const node_b = node_a.right;
             if (node_b) |node_b_nn| {
                 const node_c = node_b_nn.left;
@@ -238,12 +117,13 @@ pub fn AvlTree(comptime T: type) type {
                 const par_a = node_a.parent;
 
                 node_b_nn.left = node_a;
+                node_b.parent = par_a;
                 node_a.parent = node_b_nn;
                 if (par_a) |par_a_nn| {
                     if (par_a_nn.left == node_a) {
                         par_a_nn.left = node_b_nn;
                     } else {
-                        par_a_nn.right == node_b_nn;
+                        par_a_nn.right = node_b_nn;
                     }
                 } else {
                     self.root = node_b_nn;
@@ -253,6 +133,8 @@ pub fn AvlTree(comptime T: type) type {
                 if (node_c) |node_c_nn| {
                     node_c_nn.parent = node_a;
                 }
+
+                return node_b_nn;
             } else {
                 return error.IllegalRotation;
             }
@@ -265,7 +147,7 @@ pub fn AvlTree(comptime T: type) type {
         //     B
         //  c     A
         //       d e
-        fn rotate_right(self: *This, node_a: *Node) !void {
+        fn rotateRight(self: *This, node_a: *Node) !*Node {
             const node_b = node_a.left;
             if (node_b) |node_b_nn| {
                 // const node_c = node_b_nn.left;
@@ -274,6 +156,7 @@ pub fn AvlTree(comptime T: type) type {
                 const par_a = node_a.parent;
 
                 node_b_nn.right = node_a;
+                node_b_nn.parent = par_a;
                 node_a.parent = node_b;
                 if (par_a) |par_a_nn| {
                     if (par_a_nn.left == node_a) {
@@ -289,6 +172,8 @@ pub fn AvlTree(comptime T: type) type {
                 if (node_d) |node_d_nn| {
                     node_d_nn.parent = node_a;
                 }
+
+                return node_b_nn;
             } else {
                 return error.IllegalRotation;
             }
